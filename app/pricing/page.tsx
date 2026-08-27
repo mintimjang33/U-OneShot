@@ -17,7 +17,7 @@ const PLANS = [
     ctaEn: 'Start free',
     includesKo: '무료 제공 기능:',
     includesEn: 'Included for free:',
-    features: [{ ko: '한방살포 월 2회', en: 'Multi Publisher 2x/month' }],
+    features: [{ ko: '원샷배포 월 2회', en: 'Multi Publisher 2x/month' }],
   },
   {
     id: 'lite',
@@ -25,13 +25,13 @@ const PLANS = [
     en: 'Lite',
     price: '$6.99',
     priceSuffix: { ko: '/월', en: '/mo' },
-    taglineKo: '한방살포 알뜰하게 사용하기',
+    taglineKo: '원샷배포 알뜰하게 사용하기',
     taglineEn: 'Multi Publisher, budget-friendly',
     ctaKo: '구독하기',
     ctaEn: 'Subscribe',
     includesKo: 'Free의 모든 기능 포함:',
     includesEn: 'Everything in Free, plus:',
-    features: [{ ko: '한방살포 하루 1회', en: 'Multi Publisher 1x/day' }],
+    features: [{ ko: '원샷배포 하루 1회', en: 'Multi Publisher 1x/day' }],
   },
   {
     id: 'standard',
@@ -46,7 +46,7 @@ const PLANS = [
     includesKo: 'Lite의 모든 기능 포함:',
     includesEn: 'Everything in Lite, plus:',
     features: [
-      { ko: '한방살포 하루 3회', en: 'Multi Publisher 3x/day' },
+      { ko: '원샷배포 하루 3회', en: 'Multi Publisher 3x/day' },
       { ko: '이미지 월 60장', en: 'Images 60/month' },
       { ko: '동영상 월 30회', en: 'Videos 30/month' },
       { ko: '음성 월 5,000자', en: 'Voice 5,000 chars/month' },
@@ -65,7 +65,7 @@ const PLANS = [
     includesKo: 'Standard의 모든 기능 포함:',
     includesEn: 'Everything in Standard, plus:',
     features: [
-      { ko: '한방살포 하루 10회', en: 'Multi Publisher 10x/day' },
+      { ko: '원샷배포 하루 10회', en: 'Multi Publisher 10x/day' },
       { ko: '이미지 월 200장', en: 'Images 200/month' },
       { ko: '동영상 월 90회', en: 'Videos 90/month' },
       { ko: '음성 월 20,000자', en: 'Voice 20,000 chars/month' },
@@ -84,7 +84,7 @@ const LIMIT_ROWS: { label: { ko: string; en: string }; values: string[]; group?:
   { label: { ko: '롱대리 · 숏대리', en: 'Long/Short Daeri' }, values: ['—', '∞', '∞', '∞'] },
   { label: { ko: '가사도우미', en: 'Lyrics helper' }, values: ['—', '∞', '∞', '∞'] },
   { label: { ko: '업로드 처방전', en: 'Upload Rx' }, values: ['—', '∞', '∞', '∞'] },
-  { group: '한방살포 (배포)', label: { ko: '한방살포', en: 'Multi Publisher' }, values: ['2회/월', '1회/일', '3회/일', '10회/일'] },
+  { group: '원샷배포 (배포)', label: { ko: '원샷배포', en: 'Multi Publisher' }, values: ['2회/월', '1회/일', '3회/일', '10회/일'] },
 ];
 
 export default function PricingPage() {
@@ -197,7 +197,7 @@ export default function PricingPage() {
             </div>
             <p className="text-center text-xs text-muted mt-6">
               <T
-                ko="※ 한방살포와 원고·리서치는 제작 상한과 무관하게 사용합니다. ※"
+                ko="※ 원샷배포와 원고·리서치는 제작 상한과 무관하게 사용합니다. ※"
                 en="※ Multi Publisher and script/research tools are independent of the creation limits above. ※"
               />
             </p>

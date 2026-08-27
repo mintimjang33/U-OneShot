@@ -18,14 +18,14 @@ export async function getUserTier(userId: string): Promise<{ tier: Tier; expires
   return { tier: data.tier as Tier, expiresAt: data.expires_at };
 }
 
-// 이번 기간(한방살포는 tier에 따라 일간 또는 월간) 시작 시각을 구한다.
+// 이번 기간(원샷배포는 tier에 따라 일간 또는 월간) 시작 시각을 구한다.
 function periodStart(period: 'day' | 'month'): Date {
   const now = new Date();
   if (period === 'day') return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-// 한방살포 발행 전 한도 체크. 초과하면 에러 메시지를 반환하고, 여유 있으면 null을 반환한다.
+// 원샷배포 발행 전 한도 체크. 초과하면 에러 메시지를 반환하고, 여유 있으면 null을 반환한다.
 export async function checkMultiPublishQuota(userId: string): Promise<string | null> {
   const { tier } = await getUserTier(userId);
   const limit = TIER_LIMITS[tier].multiPublish;
@@ -40,7 +40,7 @@ export async function checkMultiPublishQuota(userId: string): Promise<string | n
 
   if ((count || 0) >= limit.count) {
     const periodLabel = limit.period === 'day' ? '오늘' : '이번 달';
-    return `한방살포 ${periodLabel} 한도(${limit.count}회)를 다 쓰셨어요. 요금제를 업그레이드하면 더 많이 발행할 수 있어요.`;
+    return `원샷배포 ${periodLabel} 한도(${limit.count}회)를 다 쓰셨어요. 요금제를 업그레이드하면 더 많이 발행할 수 있어요.`;
   }
   return null;
 }

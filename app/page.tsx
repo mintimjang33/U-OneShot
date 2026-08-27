@@ -6,7 +6,7 @@ import { T } from '../lib/i18n';
 const TOOLS = [
   {
     slug: 'multi-publisher',
-    ko: '한방살포 · Multi Publisher',
+    ko: '원샷배포 · Multi Publisher',
     en: 'Multi Publisher',
     titleKo: '딸깍 한 번으로 6개 SNS 동시 업로드',
     titleEn: 'One click, 6 social uploads at once',
@@ -100,7 +100,7 @@ const FAQS = [
   {
     qKo: '무료로 쓸 수 있나요?',
     qEn: 'Is it free to use?',
-    aKo: '네. 한방살포 월 2회로 무료로 시작할 수 있고, 이미지·동영상·음성 제작이 필요하면 유료 플랜으로 업그레이드하면 됩니다.',
+    aKo: '네. 원샷배포 월 2회로 무료로 시작할 수 있고, 이미지·동영상·음성 제작이 필요하면 유료 플랜으로 업그레이드하면 됩니다.',
     aEn: 'Yes — start free with 2 Multi Publisher posts per month. Upgrade when you need image, video or voice creation.',
   },
   {
@@ -207,7 +207,7 @@ export default function HomePage() {
           <div className="max-w-6xl mx-auto px-4 py-20 grid md:grid-cols-2 gap-10 items-center">
             <div>
               <p className="text-xs font-black text-accent mb-2">
-                <T ko="한방살포 · Multi Publisher" en="Multi Publisher" />
+                <T ko="원샷배포 · Multi Publisher" en="Multi Publisher" />
               </p>
               <h2 className="text-3xl font-black mb-4">
                 <T ko="딸깍 한 번으로 6개 SNS 동시 업로드" en="One click, 6 social uploads at once" />
@@ -264,7 +264,7 @@ export default function HomePage() {
             </h2>
             <p className="text-muted mb-8 max-w-xl mx-auto">
               <T
-                ko="무료 플랜: 한방살포 월 2회로 시작하세요. 이미지·동영상·음성 제작은 유료 구독 플랜에서 월간 제공량으로 사용할 수 있습니다."
+                ko="무료 플랜: 원샷배포 월 2회로 시작하세요. 이미지·동영상·음성 제작은 유료 구독 플랜에서 월간 제공량으로 사용할 수 있습니다."
                 en="Free plan: start with 2 Multi Publisher posts per month. Image, video and voice creation come with monthly allowances on paid plans."
               />
             </p>

@@ -30,7 +30,7 @@ create table if not exists uos_social_accounts (
 );
 alter table uos_social_accounts enable row level security;
 
--- 한방살포(Multi Publisher) 발행 작업 1건 = 여러 플랫폼으로 동시 발행되는 하나의 콘텐츠 묶음.
+-- 원샷배포(Multi Publisher) 발행 작업 1건 = 여러 플랫폼으로 동시 발행되는 하나의 콘텐츠 묶음.
 create table if not exists uos_publish_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,

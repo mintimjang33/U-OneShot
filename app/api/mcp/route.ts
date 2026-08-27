@@ -133,7 +133,7 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 한방살포(Multi Publisher) 도메인 기능 ───────────────────────────
+    // ── 원샷배포(Multi Publisher) 도메인 기능 ───────────────────────────
     server.registerTool(
       'publish_thread_post',
       {
@@ -211,7 +211,7 @@ const baseHandler = createMcpHandler(
   {
     instructions:
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
-      'run_sql은 SELECT만 허용), 한방살포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
+      'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
       'GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. YouTube/TikTok/Instagram/Facebook/X는 ' +
       '아직 OAuth 앱 승인 전이라 발행 도구가 없다 — uos_publish_targets에 not_configured 상태로만 기록된다.',
     verboseLogs: true,

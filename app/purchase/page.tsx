@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const PLANS = {
-  lite: { label: 'Lite', price: '$6.99', tagline: '한방살포 알뜰하게 사용하기' },
+  lite: { label: 'Lite', price: '$6.99', tagline: '원샷배포 알뜰하게 사용하기' },
   standard: { label: 'Standard', price: '$19.99', tagline: '꾸준함이 실력입니다' },
   pro: { label: 'Pro', price: '$49.99', tagline: '취미가 아니라 수익입니다' },
 } as const;

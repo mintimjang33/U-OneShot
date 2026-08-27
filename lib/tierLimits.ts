@@ -2,7 +2,7 @@ export type Tier = 'free' | 'lite' | 'standard' | 'pro';
 
 // buronai.com /pricing에 실제로 나온 한도 그대로(app/pricing/page.tsx의 PLANS/LIMIT_ROWS와 동일 숫자).
 // 이미지/동영상/음성은 컷대리(Phase 2) 등 아직 없는 기능용 — 지금은 정의만 해두고, 해당 도구를
-// 만들 때 이 값을 그대로 가져다 쓰면 된다. 지금 실제로 강제하는 건 multiPublish(한방살포)뿐이다.
+// 만들 때 이 값을 그대로 가져다 쓰면 된다. 지금 실제로 강제하는 건 multiPublish(원샷배포)뿐이다.
 export const TIER_LIMITS: Record<
   Tier,
   { multiPublish: { count: number; period: 'day' | 'month' }; images: number; videos: number; ttsChars: number }
