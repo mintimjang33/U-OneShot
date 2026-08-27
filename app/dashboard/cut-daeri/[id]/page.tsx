@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, use as usePromise } from 'react';
+import { useEffect, useState, useRef, use as usePromise } from 'react';
 
 type Cut = { id: string; order_index: number; text: string; image_url: string | null; audio_url: string | null; status: string };
-type Project = { id: string; topic: string; script: string; style: string; aspect_ratio: string };
+type Project = { id: string; topic: string; script: string; style: string; aspect_ratio: string; status: string; video_url: string | null };
 
 export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
@@ -11,6 +11,8 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   const [cuts, setCuts] = useState<Cut[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyKind, setBusyKind] = useState<'image' | 'voice' | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function load() {
     fetch(`/api/cutdaeri/${id}`)
@@ -22,6 +24,15 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   }
 
   useEffect(load, [id]);
+
+  useEffect(() => {
+    if (project?.status === 'rendering') {
+      pollRef.current = setInterval(load, 5000);
+      return () => {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
+    }
+  }, [project?.status, id]);
 
   async function generateImage(cutId: string) {
     setBusyId(cutId);
@@ -58,9 +69,21 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     }
   }
 
+  async function startRender() {
+    setRenderError(null);
+    const res = await fetch(`/api/cutdaeri/${id}/render`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      load();
+    } else {
+      setRenderError(data.error);
+    }
+  }
+
   if (!project) return <div className="text-sm text-muted">불러오는 중...</div>;
 
   const busy = busyId !== null;
+  const allReady = cuts.length > 0 && cuts.every((c) => c.image_url && c.audio_url);
 
   return (
     <div className="max-w-3xl">
@@ -74,7 +97,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         <p className="text-sm text-muted mt-3 whitespace-pre-wrap">{project.script}</p>
       </details>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-6 flex-wrap">
         <button
           type="button"
           onClick={() => generateAll('image')}
@@ -135,7 +158,32 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         ))}
       </div>
 
-      <p className="text-xs text-muted mt-8">다음 단계(자막 · 최종 영상 렌더링)는 아직 준비 중이에요.</p>
+      <div className="mt-8 border-t border-border pt-6">
+        <h2 className="font-bold mb-3">최종 영상</h2>
+
+        {project.status === 'done' && project.video_url ? (
+          <video controls src={project.video_url} className={`rounded-[var(--radius-card)] ${project.aspect_ratio === '9:16' ? 'w-64' : 'w-full max-w-lg'}`} />
+        ) : project.status === 'rendering' ? (
+          <p className="text-sm text-muted">
+            렌더링 중이에요... (유쇼츠 로컬 워커가 처리 중 — 워커가 꺼져있으면 여기서 멈춰있을 수 있어요)
+          </p>
+        ) : project.status === 'failed' ? (
+          <p className="text-sm text-red-500">렌더링에 실패했어요. 컷별 이미지/음성을 확인하고 다시 시도해주세요.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={startRender}
+            disabled={!allReady}
+            className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-6 py-2.5 text-sm disabled:opacity-40"
+          >
+            영상 만들기
+          </button>
+        )}
+        {!allReady && project.status === 'draft' && (
+          <p className="text-xs text-muted mt-2">모든 컷의 이미지·음성을 먼저 생성해야 영상을 만들 수 있어요.</p>
+        )}
+        {renderError && <p className="text-xs text-red-500 mt-2">{renderError}</p>}
+      </div>
     </div>
   );
 }
