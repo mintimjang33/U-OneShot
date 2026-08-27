@@ -2,14 +2,15 @@
 
 import { useEffect, useState, use as usePromise } from 'react';
 
-type Cut = { id: string; order_index: number; text: string; image_url: string | null; status: string };
+type Cut = { id: string; order_index: number; text: string; image_url: string | null; audio_url: string | null; status: string };
 type Project = { id: string; topic: string; script: string; style: string; aspect_ratio: string };
 
 export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const [project, setProject] = useState<Project | null>(null);
   const [cuts, setCuts] = useState<Cut[]>([]);
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyKind, setBusyKind] = useState<'image' | 'voice' | null>(null);
 
   function load() {
     fetch(`/api/cutdaeri/${id}`)
@@ -23,25 +24,43 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   useEffect(load, [id]);
 
   async function generateImage(cutId: string) {
-    setGeneratingId(cutId);
+    setBusyId(cutId);
+    setBusyKind('image');
     const res = await fetch(`/api/cutdaeri/cuts/${cutId}/generate-image`, { method: 'POST' });
     const data = await res.json();
-    setGeneratingId(null);
+    setBusyId(null);
+    setBusyKind(null);
     if (res.ok) {
       setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, status: 'done' } : c)));
     } else {
       alert(`이미지 생성 실패: ${data.error}`);
-      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, status: 'failed' } : c)));
     }
   }
 
-  async function generateAllImages() {
+  async function generateVoice(cutId: string) {
+    setBusyId(cutId);
+    setBusyKind('voice');
+    const res = await fetch(`/api/cutdaeri/cuts/${cutId}/generate-voice`, { method: 'POST' });
+    const data = await res.json();
+    setBusyId(null);
+    setBusyKind(null);
+    if (res.ok) {
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, audio_url: data.audioUrl } : c)));
+    } else {
+      alert(`음성 생성 실패: ${data.error}`);
+    }
+  }
+
+  async function generateAll(kind: 'image' | 'voice') {
     for (const cut of cuts) {
-      if (!cut.image_url) await generateImage(cut.id);
+      const already = kind === 'image' ? cut.image_url : cut.audio_url;
+      if (!already) await (kind === 'image' ? generateImage(cut.id) : generateVoice(cut.id));
     }
   }
 
   if (!project) return <div className="text-sm text-muted">불러오는 중...</div>;
+
+  const busy = busyId !== null;
 
   return (
     <div className="max-w-3xl">
@@ -55,47 +74,68 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         <p className="text-sm text-muted mt-3 whitespace-pre-wrap">{project.script}</p>
       </details>
 
-      <button
-        type="button"
-        onClick={generateAllImages}
-        disabled={generatingId !== null}
-        className="mb-6 bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
-      >
-        전체 이미지 생성
-      </button>
+      <div className="flex gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => generateAll('image')}
+          disabled={busy}
+          className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
+        >
+          전체 이미지 생성
+        </button>
+        <button
+          type="button"
+          onClick={() => generateAll('voice')}
+          disabled={busy}
+          className="border border-border font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
+        >
+          전체 음성 생성
+        </button>
+      </div>
 
       <div className="space-y-4">
         {cuts.map((cut) => (
           <div key={cut.id} className="border border-border rounded-[var(--radius-card)] p-4 flex gap-4">
-            <div className={`shrink-0 bg-neutral-100 rounded-[var(--radius-card-sm)] overflow-hidden ${project.aspect_ratio === '9:16' ? 'w-24 h-40' : 'w-40 h-24'} flex items-center justify-center`}>
+            <div
+              className={`shrink-0 bg-neutral-100 rounded-[var(--radius-card-sm)] overflow-hidden ${
+                project.aspect_ratio === '9:16' ? 'w-24 h-40' : 'w-40 h-24'
+              } flex items-center justify-center`}
+            >
               {cut.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cut.image_url} alt={`컷 ${cut.order_index + 1}`} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[10px] text-muted">
-                  {generatingId === cut.id ? '생성 중...' : cut.status === 'failed' ? '생성 실패' : '이미지 없음'}
-                </span>
+                <span className="text-[10px] text-muted">{busyId === cut.id && busyKind === 'image' ? '생성 중...' : '이미지 없음'}</span>
               )}
             </div>
             <div className="flex-1">
               <div className="text-xs font-bold text-muted mb-1">컷 {cut.order_index + 1}</div>
               <p className="text-sm mb-2">{cut.text}</p>
-              <button
-                type="button"
-                onClick={() => generateImage(cut.id)}
-                disabled={generatingId !== null}
-                className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-neutral-50 disabled:opacity-40"
-              >
-                {cut.image_url ? '다시 생성' : '이미지 생성'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => generateImage(cut.id)}
+                  disabled={busy}
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-neutral-50 disabled:opacity-40"
+                >
+                  {cut.image_url ? '이미지 다시 생성' : '이미지 생성'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => generateVoice(cut.id)}
+                  disabled={busy}
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-neutral-50 disabled:opacity-40"
+                >
+                  {busyId === cut.id && busyKind === 'voice' ? '생성 중...' : cut.audio_url ? '음성 다시 생성' : '음성 생성'}
+                </button>
+                {cut.audio_url && <audio controls src={cut.audio_url} className="h-8" />}
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <p className="text-xs text-muted mt-8">
-        다음 단계(음성 생성 · 자막 · 최종 렌더링)는 아직 준비 중이에요.
-      </p>
+      <p className="text-xs text-muted mt-8">다음 단계(자막 · 최종 영상 렌더링)는 아직 준비 중이에요.</p>
     </div>
   );
 }
