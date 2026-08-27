@@ -16,7 +16,7 @@ import { publishThreadPostNow } from '../../../lib/publishThreadPost';
 
 const GITHUB_REPO = 'mintimjang33/U-OneShot';
 
-const ALLOWED_TABLES = ['uos_threads_accounts', 'uos_social_accounts', 'uos_publish_jobs', 'uos_publish_targets'];
+const ALLOWED_TABLES = ['uos_threads_accounts', 'uos_social_accounts', 'uos_publish_jobs', 'uos_publish_targets', 'uos_subscriptions'];
 
 function textResult(text: string) {
   return { content: [{ type: 'text' as const, text }] };

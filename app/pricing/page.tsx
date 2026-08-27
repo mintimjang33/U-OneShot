@@ -127,7 +127,7 @@ export default function PricingPage() {
                 <T ko={plan.taglineKo} en={plan.taglineEn} />
               </p>
               <Link
-                href="/login"
+                href={plan.id === 'free' ? '/login' : `/purchase?tier=${plan.id}`}
                 className={`text-center text-sm font-bold rounded-[var(--radius-card-sm)] py-2.5 mb-6 ${
                   plan.popular ? 'bg-accent text-white' : 'border border-border'
                 }`}

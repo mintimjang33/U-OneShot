@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { publishThreadPostNow } from '../../../lib/publishThreadPost';
+import { checkMultiPublishQuota } from '../../../lib/subscription';
 
 const CONFIGURED_PLATFORMS = new Set(['threads']); // YouTube/TikTok/Instagram/Facebook/X는 OAuth 앱 승인 후 추가
 
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const targets: TargetInput[] = body?.targets || [];
   if (targets.length === 0) return NextResponse.json({ error: '최소 1개 플랫폼을 선택해주세요.' }, { status: 400 });
+
+  const quotaError = await checkMultiPublishQuota(user.id);
+  if (quotaError) return NextResponse.json({ error: quotaError }, { status: 402 });
 
   const supabase = getSupabaseServerClient();
 

@@ -38,8 +38,14 @@ export default function PublishPage() {
   const [shareToInstagram, setShareToInstagram] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<Record<string, { status: string; postId?: string; error?: string }> | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
+  const [tier, setTier] = useState<string>('free');
 
   useEffect(() => {
+    fetch('/api/subscription')
+      .then((r) => r.json())
+      .then((d) => d.tier && setTier(d.tier));
+
     fetch('/api/threads-accounts')
       .then((r) => r.json())
       .then((d) => {
@@ -65,6 +71,7 @@ export default function PublishPage() {
   async function handlePublish() {
     setPublishing(true);
     setResult(null);
+    setQuotaError(null);
     const targets = (Object.keys(enabled) as PlatformKey[])
       .filter((k) => enabled[k])
       .map((platform) => ({
@@ -80,14 +87,32 @@ export default function PublishPage() {
       body: JSON.stringify({ targets }),
     });
     const data = await res.json();
-    setResult(data.results || {});
+    if (res.status === 402) {
+      setQuotaError(data.error);
+    } else {
+      setResult(data.results || {});
+    }
     setPublishing(false);
   }
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-black mb-1">한방살포</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-black">한방살포</h1>
+        <a href="/pricing" className="text-xs font-bold bg-accent-soft text-accent rounded-[var(--radius-pill)] px-3 py-1">
+          현재 요금제: {tier.toUpperCase()}
+        </a>
+      </div>
       <p className="text-sm text-muted mb-8">딸깍 한 번으로 6개 SNS 동시 업로드 — Threads부터 실제 발행됩니다.</p>
+
+      {quotaError && (
+        <div className="mb-6 border border-accent bg-accent-soft text-accent text-sm rounded-[var(--radius-card)] px-4 py-3 flex items-center justify-between">
+          <span>{quotaError}</span>
+          <a href="/purchase" className="font-bold underline shrink-0 ml-3">
+            업그레이드
+          </a>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-5">
         {(Object.keys(PLATFORM_META) as PlatformKey[]).map((platform) => {
