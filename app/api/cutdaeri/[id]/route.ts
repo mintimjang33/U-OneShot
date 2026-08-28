@@ -16,6 +16,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json({ project, cuts: cuts || [] });
 }
 
+// 2단계(이미지 스타일) 완료 처리: 스타일을 정하면 그때부터 컷 이미지 생성이 가능해진다.
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  const { id } = await params;
+
+  const body = await request.json().catch(() => null);
+  const style: string | undefined = ['portrait', 'natural', 'editorial'].includes(body?.style) ? body.style : undefined;
+  if (!style) return NextResponse.json({ error: '스타일을 선택해주세요.' }, { status: 400 });
+
+  const supabase = getSupabaseServerClient();
+  const { data: project, error } = await supabase.from('uos_cutdaeri_projects').update({ style }).eq('id', id).eq('user_id', user.id).select().single();
+  if (error || !project) return NextResponse.json({ error: error?.message || '프로젝트를 찾을 수 없습니다.' }, { status: 404 });
+
+  return NextResponse.json({ project });
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });

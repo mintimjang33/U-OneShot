@@ -13,7 +13,7 @@ import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { publishThreadPostNow } from '../../../lib/publishThreadPost';
-import { generateCutDaeriScript, generateLongDaeriScript, generateShortDaeriScripts, generateUploadRx } from '../../../lib/generateScript';
+import { splitCutDaeriScript, suggestCutDaeriTopic, generateLongDaeriScript, generateShortDaeriScripts, generateUploadRx } from '../../../lib/generateScript';
 import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
 import { generateCutVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
@@ -197,31 +197,68 @@ const baseHandler = createMcpHandler(
 
     // ── 컷비서 ───────────────────────────────────────────────────────
     server.registerTool(
+      'suggest_cutdaeri_topic',
+      {
+        title: '컷비서 소재 추천',
+        description: '아직 원고가 없을 때 소재 하나를 추천한다("추천글감받기"에 해당). 원고 자체는 이 도구가 쓰지 않는다.',
+        inputSchema: { keyword: z.string().optional() },
+      },
+      async ({ keyword }) => {
+        try {
+          const { topic } = await suggestCutDaeriTopic(keyword);
+          return textResult(topic);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
       'generate_cutdaeri',
       {
         title: '컷비서 프로젝트 생성',
-        description: '주제→대본→컷 분할까지 한 번에 실행해 uos_cutdaeri_projects/uos_cutdaeri_cuts에 저장한다.',
+        description: '사용자가 이미 쓴 원고를 지정한 컷 수로 분할해 uos_cutdaeri_projects/uos_cutdaeri_cuts에 저장한다(원고를 새로 쓰지 않는다 — 원문 그대로 나눈다). 스타일은 이후 update_cutdaeri_style로 따로 정한다.',
         inputSchema: {
-          topic: z.string(),
-          style: z.enum(['portrait', 'natural', 'editorial']).optional(),
+          script: z.string().describe('사용자가 이미 작성한 완성된 원고'),
+          cutCount: z.number().int().min(2).max(30),
+          topic: z.string().optional(),
           aspectRatio: z.enum(['9:16', '16:9']).optional(),
           userId: z.string().optional(),
         },
       },
-      async ({ topic, style = 'natural', aspectRatio = '9:16', userId }) => {
+      async ({ script, cutCount, topic, aspectRatio = '9:16', userId }) => {
         try {
           const uid = resolveUserId(userId);
           const supabase = getSupabaseServerClient();
-          const { script, cuts } = await generateCutDaeriScript(topic, style);
+          const cuts = await splitCutDaeriScript(script, cutCount);
           const { data: project, error: pErr } = await supabase
             .from('uos_cutdaeri_projects')
-            .insert({ user_id: uid, topic, script, style, aspect_ratio: aspectRatio, status: 'draft' })
+            .insert({ user_id: uid, topic: topic || null, script, cut_count: cutCount, aspect_ratio: aspectRatio, status: 'draft' })
             .select()
             .single();
           if (pErr || !project) throw new Error(pErr?.message || '프로젝트 생성 실패');
           const rows = cuts.map((text, i) => ({ project_id: project.id, order_index: i, text }));
           const { error: cErr } = await supabase.from('uos_cutdaeri_cuts').insert(rows);
           if (cErr) throw new Error(cErr.message);
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'update_cutdaeri_style',
+      {
+        title: '컷비서 스타일 지정 (2단계)',
+        description: '생성된 프로젝트에 이미지 스타일을 정한다. 스타일이 없으면 컷 이미지 생성이 불가하다.',
+        inputSchema: { projectId: z.string(), style: z.enum(['portrait', 'natural', 'editorial']) },
+      },
+      async ({ projectId, style }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase.from('uos_cutdaeri_projects').update({ style }).eq('id', projectId).select().single();
+          if (error || !project) throw new Error(error?.message || '프로젝트를 찾을 수 없습니다.');
           return textResult(JSON.stringify(project, null, 2));
         } catch (err) {
           return errorResult(err);

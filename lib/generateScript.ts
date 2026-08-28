@@ -1,11 +1,5 @@
 import { getRemoteConfig } from './remoteConfig';
 
-const STYLE_LABEL: Record<string, string> = {
-  portrait: '인물 중심',
-  natural: '내추럴(배경 중심)',
-  editorial: '에디토리얼(제품 중심)',
-};
-
 const TONE_LABEL: Record<string, string> = {
   info: '정보 전달(객관적 사실 위주)',
   story: '스토리텔링(경험담·서사 구조)',
@@ -39,28 +33,38 @@ async function callClaudeForJSON(systemPrompt: string, userMessage: string, maxT
   }
 }
 
-// 컷대리 1단계: 주제 → 대본 → 6~10개 컷(장면)으로 분할. Claude가 컷 분할까지 한 번에 JSON으로
-// 반환하게 해서, 문장 단위로 대충 쪼개는 휴리스틱보다 훨씬 자연스러운 장면 전환을 얻는다.
-export async function generateCutDaeriScript(topic: string, style: string): Promise<{ script: string; cuts: string[] }> {
-  const systemPrompt = `너는 숏폼 영상 나레이션 대본 작가다. 주제와 스타일을 받아서 30~60초 분량의 몰입감 있는
-나레이션 대본을 쓰고, 영상 컷(장면) 단위로 6~10개로 나눠라.
+// 컷비서 1단계 "추천글감받기": 아직 원고가 없는 사용자를 위해 소재(주제)만 추천한다 — 원고 자체는
+// 사용자가 직접 쓰거나 붙여넣는다(원본 실측: 메인 입력은 "완성된 원고"이지 주제가 아니다).
+export async function suggestCutDaeriTopic(keyword?: string): Promise<{ topic: string }> {
+  const systemPrompt = `너는 숏폼 영상 소재 기획자다. 키워드가 주어지면 그 키워드와 관련된, 키워드가
+없으면 요즘 반응이 좋을 만한 숏폼 영상 소재를 하나 제안한다. 소재는 한 문장으로, 후킹 포인트가 뭔지
+알 수 있게 구체적으로 쓴다.
+
+결과는 JSON만 출력한다: {"topic": "제안 소재 한 문장"}`;
+
+  const parsed = (await callClaudeForJSON(systemPrompt, keyword ? `키워드: ${keyword}` : '키워드 없음 — 트렌디한 소재 하나 제안', 512)) as {
+    topic?: string;
+  };
+  if (!parsed.topic) throw new Error('소재 추천 응답 형식이 올바르지 않습니다.');
+  return { topic: parsed.topic };
+}
+
+// 컷비서 1단계 본 기능: 사용자가 직접 쓴/붙여넣은 원고를 지정한 컷 수로 분할한다(원본은 대본을 AI가
+// 새로 쓰지 않는다 — 이미 있는 원고를 컷 단위로 나누기만 한다).
+export async function splitCutDaeriScript(script: string, cutCount: number): Promise<string[]> {
+  const systemPrompt = `너는 영상 편집 콘티 작가다. 완성된 나레이션 원고 하나를 받아서, 정확히 ${cutCount}개의
+컷(장면)으로 나눈다.
 
 규칙:
-- 첫 문장은 호기심을 자극하는 훅으로 시작한다.
-- 문장은 짧고 리듬감 있게 쓴다.
-- 각 컷은 1~2문장, 화면 전환이 자연스러운 지점에서 끊는다.
-- 결과는 JSON만 출력한다: {"script": "전체 대본 텍스트", "cuts": ["컷1 텍스트", "컷2 텍스트", ...]}`;
+- 원문의 문장·단어를 그대로 쓴다 — 새로 쓰거나 요약하지 않는다.
+- 정확히 ${cutCount}개로 나눈다. 분량이 고르지 않아도 되지만, 화면 전환이 자연스러운 지점에서 끊는다.
+- 결과는 JSON만 출력한다: {"cuts": ["컷1 텍스트", "컷2 텍스트", ...]} (배열 길이는 반드시 ${cutCount})`;
 
-  const parsed = (await callClaudeForJSON(
-    systemPrompt,
-    `주제: ${topic}\n스타일: ${STYLE_LABEL[style] || style}`,
-    2048
-  )) as { script?: string; cuts?: string[] };
-
-  if (!parsed.script || !Array.isArray(parsed.cuts) || parsed.cuts.length === 0) {
-    throw new Error('대본 생성 응답 형식이 올바르지 않습니다.');
+  const parsed = (await callClaudeForJSON(systemPrompt, `원고:\n${script}`, 2048)) as { cuts?: string[] };
+  if (!Array.isArray(parsed.cuts) || parsed.cuts.length === 0) {
+    throw new Error('컷 분할 응답 형식이 올바르지 않습니다.');
   }
-  return { script: parsed.script, cuts: parsed.cuts };
+  return parsed.cuts;
 }
 
 // 롱대리: 주제 → 롱폼 원고(영상 나레이션 또는 아티클로 쓸 수 있는 긴 글). 숏대리가 이 원고를 재료로 쓴다.

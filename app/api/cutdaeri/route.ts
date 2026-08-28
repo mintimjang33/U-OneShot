@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
-import { generateCutDaeriScript } from '../../../lib/generateScript';
+import { splitCutDaeriScript } from '../../../lib/generateScript';
+
+const CUT_COUNT_PRESETS = [3, 5, 8, 10, 12, 16, 20];
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -18,24 +20,28 @@ export async function GET() {
   return NextResponse.json({ projects: data || [] });
 }
 
+// 컷비서 1단계(원본 스크립트 입력): 사용자가 이미 쓴 원고 + 컷 수를 받아서 컷 단위로 나눈다.
+// 스타일/화면비율은 2단계에서 고른다(project 생성 시점엔 아직 없음).
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 
   const body = await request.json().catch(() => null);
-  const topic: string = body?.topic;
-  const style: string = ['portrait', 'natural', 'editorial'].includes(body?.style) ? body.style : 'natural';
+  const script: string = body?.script;
+  const topic: string | null = body?.topic || null;
+  const cutCount: number = CUT_COUNT_PRESETS.includes(body?.cutCount) ? body.cutCount : Number(body?.cutCount) || 0;
   const aspectRatio: string = body?.aspectRatio === '16:9' ? '16:9' : '9:16';
-  if (!topic?.trim()) return NextResponse.json({ error: '주제를 입력해주세요.' }, { status: 400 });
+  if (!script?.trim()) return NextResponse.json({ error: '원고를 입력해주세요.' }, { status: 400 });
+  if (!cutCount || cutCount < 2 || cutCount > 30) return NextResponse.json({ error: '컷 수를 1~30 사이로 선택해주세요.' }, { status: 400 });
 
   const supabase = getSupabaseServerClient();
 
   try {
-    const { script, cuts } = await generateCutDaeriScript(topic, style);
+    const cuts = await splitCutDaeriScript(script, cutCount);
 
     const { data: project, error: projectError } = await supabase
       .from('uos_cutdaeri_projects')
-      .insert({ user_id: user.id, topic, script, style, aspect_ratio: aspectRatio, status: 'draft' })
+      .insert({ user_id: user.id, topic, script, cut_count: cutCount, aspect_ratio: aspectRatio, status: 'draft' })
       .select()
       .single();
     if (projectError || !project) throw new Error(projectError?.message || '프로젝트 생성 실패');
