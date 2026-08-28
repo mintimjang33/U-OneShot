@@ -13,6 +13,26 @@ import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { publishThreadPostNow } from '../../../lib/publishThreadPost';
+import { generateCutDaeriScript, generateLongDaeriScript, generateShortDaeriScripts, generateUploadRx } from '../../../lib/generateScript';
+import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
+import { generateCutVoice } from '../../../lib/generateVoice';
+import { getRemoteConfig } from '../../../lib/remoteConfig';
+
+// userId를 생략한 도구 호출은 운영자 본인 계정(MCP_OWNER_USER_ID)을 기본으로 쓴다.
+function resolveUserId(userId?: string): string {
+  const uid = userId || process.env.MCP_OWNER_USER_ID;
+  if (!uid) throw new Error('userId가 없고 MCP_OWNER_USER_ID 환경변수도 설정되어 있지 않습니다.');
+  return uid;
+}
+
+const TRUTHROOM_SYSTEM_PROMPT = `너는 산전수전 다 겪은 창업 멘토다. 사용자가 사업 아이디어, 마케팅, 콘텐츠 전략에 대해
+고민을 털어놓으면, 응원이나 막연한 위로 대신 냉정하고 현실적인 피드백을 준다.
+
+규칙:
+- 핑계나 자기합리화를 그냥 넘기지 않는다. 근거 없는 낙관에는 반드시 반박한다.
+- 예의는 지키되 돌려 말하지 않는다. 문제를 문제라고 분명히 말한다.
+- 매 답변 끝에 지금 당장 시도해볼 수 있는 구체적인 다음 행동을 하나 제시한다.
+- 3~6문장 정도로 간결하게 답한다. 장황한 설교를 하지 않는다.`;
 
 const GITHUB_REPO = 'mintimjang33/U-OneShot';
 
@@ -175,6 +195,334 @@ const baseHandler = createMcpHandler(
       }
     );
 
+    // ── 컷대리 ───────────────────────────────────────────────────────
+    server.registerTool(
+      'generate_cutdaeri',
+      {
+        title: '컷대리 프로젝트 생성',
+        description: '주제→대본→컷 분할까지 한 번에 실행해 uos_cutdaeri_projects/uos_cutdaeri_cuts에 저장한다.',
+        inputSchema: {
+          topic: z.string(),
+          style: z.enum(['portrait', 'natural', 'editorial']).optional(),
+          aspectRatio: z.enum(['9:16', '16:9']).optional(),
+          userId: z.string().optional(),
+        },
+      },
+      async ({ topic, style = 'natural', aspectRatio = '9:16', userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { script, cuts } = await generateCutDaeriScript(topic, style);
+          const { data: project, error: pErr } = await supabase
+            .from('uos_cutdaeri_projects')
+            .insert({ user_id: uid, topic, script, style, aspect_ratio: aspectRatio, status: 'draft' })
+            .select()
+            .single();
+          if (pErr || !project) throw new Error(pErr?.message || '프로젝트 생성 실패');
+          const rows = cuts.map((text, i) => ({ project_id: project.id, order_index: i, text }));
+          const { error: cErr } = await supabase.from('uos_cutdaeri_cuts').insert(rows);
+          if (cErr) throw new Error(cErr.message);
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'generate_cutdaeri_cut_image',
+      {
+        title: '컷대리 컷 이미지 생성',
+        description: '지정한 컷(uos_cutdaeri_cuts.id)의 이미지를 생성한다.',
+        inputSchema: { cutId: z.string() },
+      },
+      async ({ cutId }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: cut } = await supabase.from('uos_cutdaeri_cuts').select('*, uos_cutdaeri_projects!inner(style)').eq('id', cutId).maybeSingle();
+          if (!cut) throw new Error('컷을 찾을 수 없습니다.');
+          const { imageUrl } = await generateCutImage(cut.text, cut.uos_cutdaeri_projects.style);
+          await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, status: 'done' }).eq('id', cutId);
+          return textResult(imageUrl);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'generate_cutdaeri_cut_voice',
+      {
+        title: '컷대리 컷 음성 생성',
+        description: '지정한 컷(uos_cutdaeri_cuts.id)의 나레이션 음성을 생성한다.',
+        inputSchema: { cutId: z.string() },
+      },
+      async ({ cutId }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: cut } = await supabase.from('uos_cutdaeri_cuts').select('*').eq('id', cutId).maybeSingle();
+          if (!cut) throw new Error('컷을 찾을 수 없습니다.');
+          const { audioUrl } = await generateCutVoice(cutId, cut.copy_text || cut.text);
+          await supabase.from('uos_cutdaeri_cuts').update({ audio_url: audioUrl }).eq('id', cutId);
+          return textResult(audioUrl);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'render_cutdaeri',
+      {
+        title: '컷대리 최종 영상 렌더링 시작',
+        description: '프로젝트 상태를 rendering으로 바꾼다. 실제 합성은 U-Short 로컬 워커가 폴링해서 처리한다(워커가 켜져 있어야 함).',
+        inputSchema: { projectId: z.string() },
+        annotations: { destructiveHint: false, idempotentHint: true },
+      },
+      async ({ projectId }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { error } = await supabase.from('uos_cutdaeri_projects').update({ status: 'rendering' }).eq('id', projectId);
+          if (error) throw new Error(error.message);
+          return textResult('✅ 렌더링 큐에 등록됨. U-Short 워커가 켜져 있어야 실제로 처리된다.');
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    // ── 롱대리 · 숏대리 ──────────────────────────────────────────────
+    server.registerTool(
+      'generate_longdaeri',
+      {
+        title: '롱대리 원고 생성',
+        description: '주제→1500~2500자 롱폼 원고를 생성해 uos_longdaeri_projects에 저장한다.',
+        inputSchema: {
+          topic: z.string(),
+          tone: z.enum(['info', 'story', 'persuade']).optional(),
+          userId: z.string().optional(),
+        },
+      },
+      async ({ topic, tone = 'info', userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const { title, content } = await generateLongDaeriScript(topic, tone);
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase
+            .from('uos_longdaeri_projects')
+            .insert({ user_id: uid, topic, tone, title, content, status: 'done' })
+            .select()
+            .single();
+          if (error || !project) throw new Error(error?.message || '생성 실패');
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'split_shortdaeri',
+      {
+        title: '숏대리 — 롱대리 원고를 숏폼으로 분할',
+        description: '기존 uos_longdaeri_projects 원고를 1분 분량 숏폼 대본 4~8편으로 분할해 uos_shortdaeri_items에 저장한다(재분할 시 기존 결과 대체).',
+        inputSchema: { projectId: z.string() },
+      },
+      async ({ projectId }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: project } = await supabase.from('uos_longdaeri_projects').select('*').eq('id', projectId).maybeSingle();
+          if (!project?.content) throw new Error('원고를 찾을 수 없거나 내용이 없습니다.');
+          const shorts = await generateShortDaeriScripts(project.content);
+          await supabase.from('uos_shortdaeri_items').delete().eq('project_id', projectId);
+          const rows = shorts.map((s, i) => ({ project_id: projectId, order_index: i, title: s.title, content: s.content }));
+          const { data: inserted, error } = await supabase.from('uos_shortdaeri_items').insert(rows).select();
+          if (error) throw new Error(error.message);
+          return textResult(JSON.stringify(inserted, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    // ── 업로드 처방전 ────────────────────────────────────────────────
+    server.registerTool(
+      'generate_uploadrx',
+      {
+        title: '업로드 처방전 생성',
+        description: '키워드→클릭 유도 제목 5안+설명+해시태그를 생성해 uos_uploadrx_items에 저장한다.',
+        inputSchema: { keyword: z.string(), userId: z.string().optional() },
+      },
+      async ({ keyword, userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const { titles, description, hashtags } = await generateUploadRx(keyword);
+          const supabase = getSupabaseServerClient();
+          const { data: item, error } = await supabase
+            .from('uos_uploadrx_items')
+            .insert({ user_id: uid, keyword, titles, description, hashtags })
+            .select()
+            .single();
+          if (error || !item) throw new Error(error?.message || '생성 실패');
+          return textResult(JSON.stringify(item, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    // ── 사방팔방 ────────────────────────────────────────────────────
+    server.registerTool(
+      'create_sabangpalbang',
+      {
+        title: '사방팔방 프로젝트 생성',
+        description: '이미 호스팅된 원본 이미지 URL로 프로젝트+8개 앵글(대기 상태) 행을 만든다. 각 앵글 생성은 generate_sabangpalbang_angle을 따로 호출한다.',
+        inputSchema: { sourceImageUrl: z.string().describe('공개 접근 가능한 원본 이미지 URL'), userId: z.string().optional() },
+      },
+      async ({ sourceImageUrl, userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { data: project, error: pErr } = await supabase
+            .from('uos_sabangpalbang_projects')
+            .insert({ user_id: uid, source_image_url: sourceImageUrl, status: 'draft' })
+            .select()
+            .single();
+          if (pErr || !project) throw new Error(pErr?.message || '프로젝트 생성 실패');
+          const rows = SABANGPALBANG_ANGLES.map((a, i) => ({ project_id: project.id, order_index: i, angle_label: a.label }));
+          const { data: angles, error: aErr } = await supabase.from('uos_sabangpalbang_angles').insert(rows).select();
+          if (aErr) throw new Error(aErr.message);
+          return textResult(JSON.stringify({ project, angles }, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'generate_sabangpalbang_angle',
+      {
+        title: '사방팔방 앵글 이미지 생성',
+        description: '지정한 앵글(uos_sabangpalbang_angles.id) 하나를 실제로 생성한다.',
+        inputSchema: { angleId: z.string() },
+      },
+      async ({ angleId }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: angle } = await supabase
+            .from('uos_sabangpalbang_angles')
+            .select('*, uos_sabangpalbang_projects!inner(source_image_url)')
+            .eq('id', angleId)
+            .maybeSingle();
+          if (!angle) throw new Error('앵글을 찾을 수 없습니다.');
+          const anglePrompt = SABANGPALBANG_ANGLES[angle.order_index]?.prompt || angle.angle_label;
+          const { imageUrl } = await generateAngleImage(angle.uos_sabangpalbang_projects.source_image_url, anglePrompt);
+          await supabase.from('uos_sabangpalbang_angles').update({ image_url: imageUrl, status: 'done' }).eq('id', angleId);
+          return textResult(imageUrl);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    // ── 썸네일 이상형 월드컵 ─────────────────────────────────────────
+    server.registerTool(
+      'create_thumbarena',
+      {
+        title: '썸네일 이상형 월드컵 프로젝트 생성',
+        description: '이미 호스팅된 썸네일 후보 이미지 URL 목록(2의 거듭제곱 개수)으로 토너먼트 프로젝트를 만든다.',
+        inputSchema: { imageUrls: z.array(z.string()).min(2), userId: z.string().optional() },
+      },
+      async ({ imageUrls, userId }) => {
+        try {
+          if ((imageUrls.length & (imageUrls.length - 1)) !== 0) {
+            throw new Error('이미지 개수는 2의 거듭제곱(2, 4, 8, 16...)이어야 합니다.');
+          }
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase
+            .from('uos_thumbarena_projects')
+            .insert({ user_id: uid, image_urls: imageUrls, status: 'voting' })
+            .select()
+            .single();
+          if (error || !project) throw new Error(error?.message || '생성 실패');
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'pick_thumbarena_winner',
+      {
+        title: '썸네일 이상형 월드컵 우승 확정',
+        description: '토너먼트 프로젝트에 최종 우승 썸네일 URL을 저장하고 상태를 done으로 바꾼다.',
+        inputSchema: { projectId: z.string(), winnerUrl: z.string() },
+      },
+      async ({ projectId, winnerUrl }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase
+            .from('uos_thumbarena_projects')
+            .update({ winner_url: winnerUrl, status: 'done' })
+            .eq('id', projectId)
+            .select()
+            .single();
+          if (error || !project) throw new Error(error?.message || '프로젝트를 찾을 수 없습니다.');
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    // ── 진실의방 ─────────────────────────────────────────────────────
+    server.registerTool(
+      'send_truthroom_message',
+      {
+        title: '진실의방에 메시지 보내기',
+        description: '창업 멘토 페르소나로 답장을 생성하고, 사용자/AI 메시지를 uos_truthroom_messages에 저장한다.',
+        inputSchema: { content: z.string(), userId: z.string().optional() },
+      },
+      async ({ content, userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { data: history } = await supabase
+            .from('uos_truthroom_messages')
+            .select('role, content')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: true })
+            .limit(20);
+
+          const apiKey = await getRemoteConfig('ANTHROPIC_API_KEY');
+          if (!apiKey) throw new Error('ANTHROPIC_API_KEY가 설정되어 있지 않습니다.');
+
+          const messages = [...(history || []), { role: 'user', content }];
+          const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 1024, system: TRUTHROOM_SYSTEM_PROMPT, messages }),
+          });
+          if (!res.ok) throw new Error(`응답 생성 실패 (${res.status}): ${(await res.text()).slice(0, 300)}`);
+          const json = await res.json();
+          const reply = (json.content || []).map((c: { text?: string }) => c.text || '').join('');
+          if (!reply) throw new Error('응답이 비어 있습니다.');
+
+          const { error } = await supabase.from('uos_truthroom_messages').insert([
+            { user_id: uid, role: 'user', content },
+            { user_id: uid, role: 'assistant', content: reply },
+          ]);
+          if (error) throw new Error(error.message);
+
+          return textResult(reply);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
     // ── GitHub 저장소 확인 ────────────────────────────────────────────
     server.registerTool(
       'list_github_files',
@@ -228,8 +576,16 @@ const baseHandler = createMcpHandler(
     instructions:
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
-      'GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. YouTube/TikTok/Instagram/Facebook/X는 ' +
-      '아직 OAuth 앱 승인 전이라 발행 도구가 없다 — uos_publish_targets에 not_configured 상태로만 기록된다.',
+      '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷대리: generate_cutdaeri/' +
+      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱대리·숏대리: ' +
+      'generate_longdaeri/split_shortdaeri, 업로드 처방전: generate_uploadrx, 사방팔방: ' +
+      'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 이상형 월드컵: create_thumbarena/' +
+      'pick_thumbarena_winner, 진실의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
+      '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 부테나는 관리자 큐레이션 ' +
+      '갤러리라 전용 생성 도구가 없다 — search_shorts(유파인더 MCP)로 후보를 찾고 upsert_row로 ' +
+      'uos_butena_cases에 직접 넣을 것. render_cutdaeri는 상태만 바꾸고 실제 합성은 U-Short 로컬 워커가 ' +
+      '처리하므로 워커가 켜져 있어야 한다. YouTube/TikTok/Instagram/Facebook/X는 아직 OAuth 앱 승인 전이라 ' +
+      '발행 도구가 없다 — uos_publish_targets에 not_configured 상태로만 기록된다.',
     verboseLogs: true,
   }
 );
