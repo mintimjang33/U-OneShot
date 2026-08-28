@@ -20,6 +20,7 @@ import {
   LONGDAERI_CATEGORIES,
   generateShortDaeriScripts,
   generateUploadRx,
+  UPLOADRX_STYLES,
 } from '../../../lib/generateScript';
 import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
 import { generateCutVoice } from '../../../lib/generateVoice';
@@ -403,17 +404,23 @@ const baseHandler = createMcpHandler(
       'generate_uploadrx',
       {
         title: '업로드 클리닉 생성',
-        description: '키워드→클릭 유도 제목 5안+설명+해시태그를 생성해 uos_uploadrx_items에 저장한다.',
-        inputSchema: { keyword: z.string(), userId: z.string().optional() },
+        description: '주제/가제(+선택: 원고, 벤치마킹 레퍼런스, 전략 스타일)→클릭 유도 제목 5안+설명+해시태그를 생성해 uos_uploadrx_items에 저장한다.',
+        inputSchema: {
+          topic: z.string(),
+          style: z.enum(UPLOADRX_STYLES).optional(),
+          script: z.string().optional(),
+          benchmarkUrl: z.string().optional(),
+          userId: z.string().optional(),
+        },
       },
-      async ({ keyword, userId }) => {
+      async ({ topic, style = UPLOADRX_STYLES[0], script, benchmarkUrl, userId }) => {
         try {
           const uid = resolveUserId(userId);
-          const { titles, description, hashtags } = await generateUploadRx(keyword);
+          const { titles, description, hashtags } = await generateUploadRx(topic, style, script, benchmarkUrl);
           const supabase = getSupabaseServerClient();
           const { data: item, error } = await supabase
             .from('uos_uploadrx_items')
-            .insert({ user_id: uid, keyword, titles, description, hashtags })
+            .insert({ user_id: uid, topic, style, script: script || null, benchmark_url: benchmarkUrl || null, titles, description, hashtags })
             .select()
             .single();
           if (error || !item) throw new Error(error?.message || '생성 실패');

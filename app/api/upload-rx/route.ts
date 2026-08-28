@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
-import { generateUploadRx } from '../../../lib/generateScript';
+import { generateUploadRx, UPLOADRX_STYLES } from '../../../lib/generateScript';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -23,17 +23,20 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 
   const body = await request.json().catch(() => null);
-  const keyword: string = body?.keyword;
-  if (!keyword?.trim()) return NextResponse.json({ error: '키워드를 입력해주세요.' }, { status: 400 });
+  const topic: string = body?.topic;
+  const style: string = UPLOADRX_STYLES.includes(body?.style) ? body.style : UPLOADRX_STYLES[0];
+  const script: string | undefined = body?.script || undefined;
+  const benchmarkUrl: string | undefined = body?.benchmarkUrl || undefined;
+  if (!topic?.trim()) return NextResponse.json({ error: '영상 주제 또는 가제를 입력해주세요.' }, { status: 400 });
 
   const supabase = getSupabaseServerClient();
 
   try {
-    const { titles, description, hashtags } = await generateUploadRx(keyword);
+    const { titles, description, hashtags } = await generateUploadRx(topic, style, script, benchmarkUrl);
 
     const { data: item, error: insertError } = await supabase
       .from('uos_uploadrx_items')
-      .insert({ user_id: user.id, keyword, titles, description, hashtags })
+      .insert({ user_id: user.id, topic, style, script: script || null, benchmark_url: benchmarkUrl || null, titles, description, hashtags })
       .select()
       .single();
     if (insertError || !item) throw new Error(insertError?.message || '저장 실패');
