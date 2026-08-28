@@ -162,3 +162,35 @@ export async function generateThumbnailCopy(topic: string, variantCount: number)
   }
   return parsed.copies;
 }
+
+// 가사비서 (신규, 8-9절 실측 기반): 주제+장르+보컬타입 → 가사 + SUNO AI 프롬프트(스타일 태그 문자열).
+export const LYRICS_THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족'];
+export const LYRICS_GENRES = ['K-Pop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Ballad', 'Hip-hop', 'Trot', 'EDM'];
+export const LYRICS_VOCAL_TYPES = ['여성', '남성', '혼성'];
+
+export async function generateLyrics(
+  theme: string,
+  genre: string,
+  vocalType: string,
+  language: string
+): Promise<{ title: string; lyrics: string; sunoPrompt: string }> {
+  const systemPrompt = `너는 작사가다. 주제·장르·보컬 타입을 받아서 노래 가사를 쓰고, SUNO AI(AI 작곡 서비스)에
+바로 붙여넣을 수 있는 스타일 프롬프트도 함께 만든다.
+
+규칙:
+- 가사는 ${language}로 쓴다. 벌스(verse) 2개 + 후렴(chorus) 구조를 갖춘다. 섹션 이름([Verse 1], [Chorus] 등)을
+  표시하고 줄바꿈으로 구분한다.
+- SUNO 프롬프트는 영어로, 장르/무드/보컬타입/템포/악기 등을 쉼표로 나열한 짧은 태그 형식으로 쓴다
+  (예: "K-pop, female vocal, upbeat, synth-pop, emotional bridge").
+- 결과는 JSON만 출력한다: {"title": "곡 제목", "lyrics": "가사 전체", "sunoPrompt": "SUNO 스타일 프롬프트"}`;
+
+  const parsed = (await callClaudeForJSON(systemPrompt, `주제: ${theme}\n장르: ${genre}\n보컬 타입: ${vocalType}\n언어: ${language}`, 2048)) as {
+    title?: string;
+    lyrics?: string;
+    sunoPrompt?: string;
+  };
+  if (!parsed.title || !parsed.lyrics || !parsed.sunoPrompt) {
+    throw new Error('가사 생성 응답 형식이 올바르지 않습니다.');
+  }
+  return { title: parsed.title, lyrics: parsed.lyrics, sunoPrompt: parsed.sunoPrompt };
+}

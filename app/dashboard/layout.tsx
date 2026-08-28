@@ -9,7 +9,7 @@ const NAV = [
   { href: '/dashboard/butena', label: '떡상레이더', ready: true },
   { href: '/dashboard/long-daeri', label: '롱폼비서', ready: true },
   { href: '/dashboard/short-daeri', label: '숏폼비서', ready: true },
-  { href: '/dashboard/lyrics', label: '가사비서', ready: false },
+  { href: '/dashboard/lyrics', label: '가사비서', ready: true },
   { href: '/dashboard/sabangpalbang', label: '요모조모', ready: true },
   { href: '/dashboard/upload-rx', label: '업로드 클리닉', ready: true },
   { href: '/dashboard/thumbnail-arena', label: '썸네일 리믹스', ready: true },

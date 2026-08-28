@@ -22,6 +22,10 @@ import {
   generateUploadRx,
   UPLOADRX_STYLES,
   generateThumbnailCopy,
+  generateLyrics,
+  LYRICS_THEMES,
+  LYRICS_GENRES,
+  LYRICS_VOCAL_TYPES,
 } from '../../../lib/generateScript';
 import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
 import { generateCutVoice } from '../../../lib/generateVoice';
@@ -65,6 +69,7 @@ const ALLOWED_TABLES = [
   'uos_sabangpalbang_angles',
   'uos_thumbnailremix_projects',
   'uos_truthroom_messages',
+  'uos_lyrics_projects',
 ];
 
 function textResult(text: string) {
@@ -567,6 +572,39 @@ const baseHandler = createMcpHandler(
       }
     );
 
+    // ── 가사비서 ─────────────────────────────────────────────────────
+    server.registerTool(
+      'generate_lyrics',
+      {
+        title: '가사비서 — 가사 + SUNO 프롬프트 생성',
+        description: `테마/장르/보컬타입/언어로 가사와 SUNO AI 스타일 프롬프트를 생성해 uos_lyrics_projects에 저장한다. ` +
+          `테마 예시: ${LYRICS_THEMES.join(', ')} (자유 입력도 가능). 장르: ${LYRICS_GENRES.join(', ')}. 보컬타입: ${LYRICS_VOCAL_TYPES.join(', ')}.`,
+        inputSchema: {
+          theme: z.string(),
+          genre: z.string(),
+          vocalType: z.string().optional(),
+          language: z.string().optional(),
+          userId: z.string().optional(),
+        },
+      },
+      async ({ theme, genre, vocalType = '여성', language = '한국어', userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const { title, lyrics, sunoPrompt } = await generateLyrics(theme, genre, vocalType, language);
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase
+            .from('uos_lyrics_projects')
+            .insert({ user_id: uid, language, theme, genre, vocal_type: vocalType, title, lyrics_content: lyrics, suno_prompt: sunoPrompt })
+            .select()
+            .single();
+          if (error || !project) throw new Error(error?.message || '저장 실패');
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
     // ── 직언의방 ─────────────────────────────────────────────────────
     server.registerTool(
       'send_truthroom_message',
@@ -666,11 +704,11 @@ const baseHandler = createMcpHandler(
     instructions:
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
-      '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
+      '11개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
       'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
       '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbnail_variation/' +
-      'create_thumbnail_copywriting, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
+      'create_thumbnail_copywriting, 가사비서: generate_lyrics, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
       '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 사용자가 ' +
       '키워드/유튜브 링크로 직접 검색하는 도구로 바뀌어서(searchViralVideos, YOUTUBE_DATA_API_KEY 필요) 전용 ' +
       'MCP 생성 도구는 없다 — 필요하면 get_rows로 uos_butena_search_history/uos_butena_cases를 조회할 것. ' +
