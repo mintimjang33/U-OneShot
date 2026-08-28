@@ -3,7 +3,7 @@ import Link from 'next/link';
 const NAV = [
   { href: '/dashboard/publish', label: '원샷배포', ready: true },
   { href: '/dashboard/cut-daeri', label: '컷대리', ready: true },
-  { href: '/dashboard/long-daeri', label: '롱대리 · 숏대리', ready: false },
+  { href: '/dashboard/long-daeri', label: '롱대리 · 숏대리', ready: true },
   { href: '/dashboard/upload-rx', label: '업로드 처방전', ready: false },
   { href: '/dashboard/butena', label: '부테나', ready: false },
   { href: '/dashboard/truth-room', label: '진실의방', ready: false },
