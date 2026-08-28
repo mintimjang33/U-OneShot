@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../../../../lib/supabase';
 import { getCurrentUser } from '../../../../../../lib/supabaseServerAuth';
-import { SABANGPALBANG_ANGLES, generateAngleImage } from '../../../../../../lib/generateImage';
+import { SABANGPALBANG_ANGLES, generateAngleImage, generateAngleImageFromPrompt } from '../../../../../../lib/generateImage';
 
 export async function POST(request: Request, { params }: { params: Promise<{ angleId: string }> }) {
   const user = await getCurrentUser();
@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ang
   const supabase = getSupabaseServerClient();
   const { data: angle } = await supabase
     .from('uos_sabangpalbang_angles')
-    .select('*, uos_sabangpalbang_projects!inner(user_id, source_image_url)')
+    .select('*, uos_sabangpalbang_projects!inner(user_id, source_image_url, input_mode, prompt_text)')
     .eq('id', angleId)
     .maybeSingle();
   if (!angle || angle.uos_sabangpalbang_projects.user_id !== user.id) {
@@ -22,7 +22,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ ang
 
   try {
     const anglePrompt = SABANGPALBANG_ANGLES[angle.order_index]?.prompt || angle.angle_label;
-    const { imageUrl } = await generateAngleImage(angle.uos_sabangpalbang_projects.source_image_url, anglePrompt);
+    const project = angle.uos_sabangpalbang_projects;
+    const { imageUrl } =
+      project.input_mode === 'prompt'
+        ? await generateAngleImageFromPrompt(project.prompt_text, anglePrompt)
+        : await generateAngleImage(project.source_image_url, anglePrompt);
     await supabase.from('uos_sabangpalbang_angles').update({ image_url: imageUrl, status: 'done' }).eq('id', angleId);
     return NextResponse.json({ imageUrl });
   } catch (err) {

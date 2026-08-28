@@ -429,20 +429,35 @@ const baseHandler = createMcpHandler(
       'create_sabangpalbang',
       {
         title: '요모조모 프로젝트 생성',
-        description: '이미 호스팅된 원본 이미지 URL로 프로젝트+8개 앵글(대기 상태) 행을 만든다. 각 앵글 생성은 generate_sabangpalbang_angle을 따로 호출한다.',
-        inputSchema: { sourceImageUrl: z.string().describe('공개 접근 가능한 원본 이미지 URL'), userId: z.string().optional() },
+        description:
+          '이미지 URL 또는 텍스트 프롬프트로 프로젝트를 만들고, 선택한 앵글만 대기 상태 행으로 추가한다(8개 중 원하는 것만 고를 수 있다). 각 앵글 생성은 generate_sabangpalbang_angle을 따로 호출한다.',
+        inputSchema: {
+          sourceImageUrl: z.string().optional().describe('공개 접근 가능한 원본 이미지 URL(이미지 모드일 때)'),
+          promptText: z.string().optional().describe('원본 이미지 대신 쓸 피사체 설명(프롬프트 모드일 때)'),
+          angleIndexes: z.array(z.number().int().min(0).max(7)).min(1).describe('SABANGPALBANG_ANGLES 배열 기준 인덱스(0~7), 원하는 앵글만'),
+          aspectRatio: z.enum(['9:16', '16:9']).optional(),
+          userId: z.string().optional(),
+        },
       },
-      async ({ sourceImageUrl, userId }) => {
+      async ({ sourceImageUrl, promptText, angleIndexes, aspectRatio = '9:16', userId }) => {
         try {
+          if (!sourceImageUrl && !promptText) throw new Error('sourceImageUrl 또는 promptText 중 하나는 필요합니다.');
           const uid = resolveUserId(userId);
           const supabase = getSupabaseServerClient();
           const { data: project, error: pErr } = await supabase
             .from('uos_sabangpalbang_projects')
-            .insert({ user_id: uid, source_image_url: sourceImageUrl, status: 'draft' })
+            .insert({
+              user_id: uid,
+              source_image_url: sourceImageUrl || null,
+              prompt_text: promptText || null,
+              input_mode: promptText ? 'prompt' : 'image',
+              aspect_ratio: aspectRatio,
+              status: 'draft',
+            })
             .select()
             .single();
           if (pErr || !project) throw new Error(pErr?.message || '프로젝트 생성 실패');
-          const rows = SABANGPALBANG_ANGLES.map((a, i) => ({ project_id: project.id, order_index: i, angle_label: a.label }));
+          const rows = angleIndexes.map((i) => ({ project_id: project.id, order_index: i, angle_label: SABANGPALBANG_ANGLES[i].label }));
           const { data: angles, error: aErr } = await supabase.from('uos_sabangpalbang_angles').insert(rows).select();
           if (aErr) throw new Error(aErr.message);
           return textResult(JSON.stringify({ project, angles }, null, 2));

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use as usePromise } from 'react';
 
-type Project = { id: string; source_image_url: string; status: string };
+type Project = { id: string; source_image_url: string | null; input_mode: string; prompt_text: string | null; status: string };
 type Angle = { id: string; order_index: number; angle_label: string; image_url: string | null; status: string };
 
 export default function SabangpalbangProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,8 +50,14 @@ export default function SabangpalbangProjectPage({ params }: { params: Promise<{
       <div className="flex gap-6 mb-6">
         <div className="shrink-0">
           <div className="text-xs font-bold text-muted mb-2">원본</div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={project.source_image_url} alt="원본" className="w-32 h-32 object-cover rounded-[var(--radius-card)]" />
+          {project.source_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.source_image_url} alt="원본" className="w-32 h-32 object-cover rounded-[var(--radius-card)]" />
+          ) : (
+            <div className="w-32 h-32 bg-neutral-100 rounded-[var(--radius-card)] flex items-center justify-center p-2 text-center">
+              <span className="text-[10px] text-muted">{project.prompt_text}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-end">
           <button

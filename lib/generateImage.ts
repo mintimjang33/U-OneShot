@@ -59,3 +59,23 @@ export async function generateAngleImage(sourceImageUrl: string, anglePrompt: st
 
   return { imageUrl };
 }
+
+// 요모조모 "프롬프트" 입력모드: 원본 이미지 없이 텍스트 설명만으로 특정 앵글의 이미지를 새로 그린다
+// (image-to-image가 아니라 text-to-image — fal.ai flux/schnell 사용).
+export async function generateAngleImageFromPrompt(subjectPrompt: string, anglePrompt: string): Promise<{ imageUrl: string }> {
+  const apiKey = await getRemoteConfig('FAL_KEY');
+  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  const prompt = `${subjectPrompt}, ${anglePrompt}, consistent style and lighting across all angles, photorealistic`;
+
+  const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
+    method: 'POST',
+    headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, image_size: 'square_hd', num_images: 1 }),
+  });
+  const json2 = await res.json();
+  const imageUrl2 = json2.images?.[0]?.url;
+  if (!res.ok || !imageUrl2) throw new Error(json2.detail || JSON.stringify(json2));
+
+  return { imageUrl: imageUrl2 };
+}
