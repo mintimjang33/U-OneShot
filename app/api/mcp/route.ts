@@ -21,8 +21,9 @@ import {
   generateShortDaeriScripts,
   generateUploadRx,
   UPLOADRX_STYLES,
+  generateThumbnailCopy,
 } from '../../../lib/generateScript';
-import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
+import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
 import { generateCutVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
@@ -62,7 +63,7 @@ const ALLOWED_TABLES = [
   'uos_butena_search_history',
   'uos_sabangpalbang_projects',
   'uos_sabangpalbang_angles',
-  'uos_thumbarena_projects',
+  'uos_thumbnailremix_projects',
   'uos_truthroom_messages',
 ];
 
@@ -500,24 +501,37 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 썸네일 리믹스 ─────────────────────────────────────────
+    // ── 썸네일 리믹스 (2모드: 썸네일 변형 / 카피라이팅) ─────────────────────
     server.registerTool(
-      'create_thumbarena',
+      'create_thumbnail_variation',
       {
-        title: '썸네일 리믹스 프로젝트 생성',
-        description: '이미 호스팅된 썸네일 후보 이미지 URL 목록(2의 거듭제곱 개수)으로 토너먼트 프로젝트를 만든다.',
-        inputSchema: { imageUrls: z.array(z.string()).min(2), userId: z.string().optional() },
+        title: '썸네일 리믹스 — 변형 생성',
+        description: '이미 호스팅된 원본 썸네일 이미지 URL로 2~4개의 변형 이미지를 즉시 생성해 uos_thumbnailremix_projects에 저장한다.',
+        inputSchema: {
+          sourceImageUrl: z.string().describe('공개 접근 가능한 원본 썸네일 이미지 URL'),
+          promptText: z.string().optional(),
+          variantCount: z.number().int().min(2).max(4).optional(),
+          userId: z.string().optional(),
+        },
       },
-      async ({ imageUrls, userId }) => {
+      async ({ sourceImageUrl, promptText, variantCount = 2, userId }) => {
         try {
-          if ((imageUrls.length & (imageUrls.length - 1)) !== 0) {
-            throw new Error('이미지 개수는 2의 거듭제곱(2, 4, 8, 16...)이어야 합니다.');
-          }
           const uid = resolveUserId(userId);
           const supabase = getSupabaseServerClient();
+          const variants = await Promise.all(
+            Array.from({ length: variantCount }, () => generateThumbnailVariant(sourceImageUrl, promptText))
+          );
           const { data: project, error } = await supabase
-            .from('uos_thumbarena_projects')
-            .insert({ user_id: uid, image_urls: imageUrls, status: 'voting' })
+            .from('uos_thumbnailremix_projects')
+            .insert({
+              user_id: uid,
+              mode: 'variation',
+              source_image_url: sourceImageUrl,
+              prompt_text: promptText || null,
+              variant_count: variantCount,
+              image_urls: variants.map((v) => v.imageUrl),
+              status: 'done',
+            })
             .select()
             .single();
           if (error || !project) throw new Error(error?.message || '생성 실패');
@@ -529,22 +543,23 @@ const baseHandler = createMcpHandler(
     );
 
     server.registerTool(
-      'pick_thumbarena_winner',
+      'create_thumbnail_copywriting',
       {
-        title: '썸네일 리믹스 우승 확정',
-        description: '토너먼트 프로젝트에 최종 우승 썸네일 URL을 저장하고 상태를 done으로 바꾼다.',
-        inputSchema: { projectId: z.string(), winnerUrl: z.string() },
+        title: '썸네일 리믹스 — 카피라이팅',
+        description: '주제→썸네일용 짧은 문구 2~4개를 생성해 uos_thumbnailremix_projects에 저장한다.',
+        inputSchema: { topic: z.string(), variantCount: z.number().int().min(2).max(4).optional(), userId: z.string().optional() },
       },
-      async ({ projectId, winnerUrl }) => {
+      async ({ topic, variantCount = 3, userId }) => {
         try {
+          const uid = resolveUserId(userId);
+          const copies = await generateThumbnailCopy(topic, variantCount);
           const supabase = getSupabaseServerClient();
           const { data: project, error } = await supabase
-            .from('uos_thumbarena_projects')
-            .update({ winner_url: winnerUrl, status: 'done' })
-            .eq('id', projectId)
+            .from('uos_thumbnailremix_projects')
+            .insert({ user_id: uid, mode: 'copywriting', topic, variant_count: variantCount, result_texts: copies, status: 'done' })
             .select()
             .single();
-          if (error || !project) throw new Error(error?.message || '프로젝트를 찾을 수 없습니다.');
+          if (error || !project) throw new Error(error?.message || '생성 실패');
           return textResult(JSON.stringify(project, null, 2));
         } catch (err) {
           return errorResult(err);
@@ -654,8 +669,8 @@ const baseHandler = createMcpHandler(
       '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
       'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
       '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
-      'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbarena/' +
-      'pick_thumbarena_winner, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
+      'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbnail_variation/' +
+      'create_thumbnail_copywriting, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
       '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 사용자가 ' +
       '키워드/유튜브 링크로 직접 검색하는 도구로 바뀌어서(searchViralVideos, YOUTUBE_DATA_API_KEY 필요) 전용 ' +
       'MCP 생성 도구는 없다 — 필요하면 get_rows로 uos_butena_search_history/uos_butena_cases를 조회할 것. ' +
