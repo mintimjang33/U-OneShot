@@ -30,6 +30,8 @@ const ALLOWED_TABLES = [
   'uos_butena_cases',
   'uos_sabangpalbang_projects',
   'uos_sabangpalbang_angles',
+  'uos_thumbarena_projects',
+  'uos_truthroom_messages',
 ];
 
 function textResult(text: string) {
