@@ -155,24 +155,6 @@ export default function HomePage() {
           </p>
         </section>
 
-        {/* Stats */}
-        <section className="border-y border-border bg-neutral-50">
-          <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { v: '2,000+', ko: '회원', en: 'members' },
-              { v: '400+', ko: '성공 발행', en: 'successful publishes' },
-              { v: '1,400+', ko: '게시물', en: 'posts' },
-              { v: '3시간→3분', ko: '대본 쓰는 시간', en: 'Scriptwriting' },
-            ].map((s) => (
-              <div key={s.ko}>
-                <div className="text-2xl font-black text-accent">{s.v}</div>
-                <div className="text-xs text-muted mt-1">
-                  <T ko={s.ko} en={s.en} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Tools */}
         <section className="max-w-6xl mx-auto px-4 py-20">
