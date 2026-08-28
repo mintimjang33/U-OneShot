@@ -43,7 +43,7 @@ export default function CutDaeriPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">컷대리</h1>
+      <h1 className="text-2xl font-black mb-1">컷비서</h1>
       <p className="text-sm text-muted mb-8">주제 하나로 대본부터 영상까지 — 편집 기술이 없어도 괜찮습니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">

@@ -45,7 +45,7 @@ export default function SabangpalbangProjectPage({ params }: { params: Promise<{
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-4">사방팔방</h1>
+      <h1 className="text-2xl font-black mb-4">요모조모</h1>
 
       <div className="flex gap-6 mb-6">
         <div className="shrink-0">

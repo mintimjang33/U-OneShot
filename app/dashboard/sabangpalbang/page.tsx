@@ -39,7 +39,7 @@ export default function SabangpalbangPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">사방팔방</h1>
+      <h1 className="text-2xl font-black mb-1">요모조모</h1>
       <p className="text-sm text-muted mb-8">한 장의 원본으로 8개의 다양한 앵글을 자동 생성합니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">

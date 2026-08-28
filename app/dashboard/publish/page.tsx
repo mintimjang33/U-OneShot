@@ -183,7 +183,7 @@ export default function PublishPage() {
         <input
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="컷대리로 만든 영상 URL, 또는 직접 업로드한 mp4 URL"
+          placeholder="컷비서로 만든 영상 URL, 또는 직접 업로드한 mp4 URL"
           className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
         />
       </div>

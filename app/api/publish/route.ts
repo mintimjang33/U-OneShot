@@ -10,7 +10,7 @@ import { publishTiktokVideoNow } from '../../../lib/publishTiktok';
 import { checkMultiPublishQuota } from '../../../lib/subscription';
 
 // 코드는 6개 플랫폼 전부 완성돼 있다. 실제로 동작하려면 각 플랫폼 앱(env var) 등록이 끝나야 하고,
-// YouTube/TikTok/Instagram은 영상 URL이 필요해서 컷대리(영상 생성) 완성 전까지는 실사용이 어렵다.
+// YouTube/TikTok/Instagram은 영상 URL이 필요해서 컷비서(영상 생성) 완성 전까지는 실사용이 어렵다.
 type Platform = 'threads' | 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'x';
 
 type TargetInput = {
@@ -45,7 +45,7 @@ async function publishOne(
         return { status: 'posted', postId: result.postId };
       }
       case 'instagram': {
-        if (!videoUrl) return { status: 'failed', error: '인스타그램 릴스는 영상이 필요합니다(컷대리로 영상 생성 후 이용 가능).' };
+        if (!videoUrl) return { status: 'failed', error: '인스타그램 릴스는 영상이 필요합니다(컷비서로 영상 생성 후 이용 가능).' };
         const result = await publishInstagramReelNow({ caption: target.body || '', videoUrl }, account);
         return { status: 'posted', postId: result.mediaId };
       }
@@ -54,7 +54,7 @@ async function publishOne(
         return { status: 'posted', postId: result.tweetId };
       }
       case 'youtube': {
-        if (!videoUrl) return { status: 'failed', error: 'YouTube는 영상이 필요합니다(컷대리로 영상 생성 후 이용 가능).' };
+        if (!videoUrl) return { status: 'failed', error: 'YouTube는 영상이 필요합니다(컷비서로 영상 생성 후 이용 가능).' };
         const result = await publishYoutubeVideoNow(
           { title: target.title || '', description: target.body || '', videoUrl, madeForKids: Boolean(target.options?.madeForKids), privacy: (target.visibility as 'public' | 'private') || 'private' },
           account
@@ -62,7 +62,7 @@ async function publishOne(
         return { status: 'posted', postId: result.videoId };
       }
       case 'tiktok': {
-        if (!videoUrl) return { status: 'failed', error: 'TikTok은 영상이 필요합니다(컷대리로 영상 생성 후 이용 가능).' };
+        if (!videoUrl) return { status: 'failed', error: 'TikTok은 영상이 필요합니다(컷비서로 영상 생성 후 이용 가능).' };
         const result = await publishTiktokVideoNow(
           {
             caption: target.body || '',

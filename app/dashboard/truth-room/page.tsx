@@ -45,7 +45,7 @@ export default function TruthRoomPage() {
 
   return (
     <div className="max-w-2xl flex flex-col h-[calc(100vh-3rem)]">
-      <h1 className="text-2xl font-black mb-1">진실의방</h1>
+      <h1 className="text-2xl font-black mb-1">직언의방</h1>
       <p className="text-sm text-muted mb-6">1시간 티타임을 기다릴 필요 없습니다 — 핑계 대신 현실적인 피드백을 받아보세요.</p>
 
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">

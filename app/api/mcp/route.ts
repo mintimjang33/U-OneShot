@@ -195,11 +195,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 컷대리 ───────────────────────────────────────────────────────
+    // ── 컷비서 ───────────────────────────────────────────────────────
     server.registerTool(
       'generate_cutdaeri',
       {
-        title: '컷대리 프로젝트 생성',
+        title: '컷비서 프로젝트 생성',
         description: '주제→대본→컷 분할까지 한 번에 실행해 uos_cutdaeri_projects/uos_cutdaeri_cuts에 저장한다.',
         inputSchema: {
           topic: z.string(),
@@ -232,7 +232,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'generate_cutdaeri_cut_image',
       {
-        title: '컷대리 컷 이미지 생성',
+        title: '컷비서 컷 이미지 생성',
         description: '지정한 컷(uos_cutdaeri_cuts.id)의 이미지를 생성한다.',
         inputSchema: { cutId: z.string() },
       },
@@ -253,7 +253,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'generate_cutdaeri_cut_voice',
       {
-        title: '컷대리 컷 음성 생성',
+        title: '컷비서 컷 음성 생성',
         description: '지정한 컷(uos_cutdaeri_cuts.id)의 나레이션 음성을 생성한다.',
         inputSchema: { cutId: z.string() },
       },
@@ -274,7 +274,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'render_cutdaeri',
       {
-        title: '컷대리 최종 영상 렌더링 시작',
+        title: '컷비서 최종 영상 렌더링 시작',
         description: '프로젝트 상태를 rendering으로 바꾼다. 실제 합성은 U-Short 로컬 워커가 폴링해서 처리한다(워커가 켜져 있어야 함).',
         inputSchema: { projectId: z.string() },
         annotations: { destructiveHint: false, idempotentHint: true },
@@ -291,11 +291,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 롱대리 · 숏대리 ──────────────────────────────────────────────
+    // ── 롱폼비서 · 숏폼비서 ──────────────────────────────────────────────
     server.registerTool(
       'generate_longdaeri',
       {
-        title: '롱대리 원고 생성',
+        title: '롱폼비서 원고 생성',
         description: '주제→1500~2500자 롱폼 원고를 생성해 uos_longdaeri_projects에 저장한다.',
         inputSchema: {
           topic: z.string(),
@@ -324,7 +324,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'split_shortdaeri',
       {
-        title: '숏대리 — 롱대리 원고를 숏폼으로 분할',
+        title: '숏폼비서 — 롱폼비서 원고를 숏폼으로 분할',
         description: '기존 uos_longdaeri_projects 원고를 1분 분량 숏폼 대본 4~8편으로 분할해 uos_shortdaeri_items에 저장한다(재분할 시 기존 결과 대체).',
         inputSchema: { projectId: z.string() },
       },
@@ -345,11 +345,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 업로드 처방전 ────────────────────────────────────────────────
+    // ── 업로드 클리닉 ────────────────────────────────────────────────
     server.registerTool(
       'generate_uploadrx',
       {
-        title: '업로드 처방전 생성',
+        title: '업로드 클리닉 생성',
         description: '키워드→클릭 유도 제목 5안+설명+해시태그를 생성해 uos_uploadrx_items에 저장한다.',
         inputSchema: { keyword: z.string(), userId: z.string().optional() },
       },
@@ -371,11 +371,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 사방팔방 ────────────────────────────────────────────────────
+    // ── 요모조모 ────────────────────────────────────────────────────
     server.registerTool(
       'create_sabangpalbang',
       {
-        title: '사방팔방 프로젝트 생성',
+        title: '요모조모 프로젝트 생성',
         description: '이미 호스팅된 원본 이미지 URL로 프로젝트+8개 앵글(대기 상태) 행을 만든다. 각 앵글 생성은 generate_sabangpalbang_angle을 따로 호출한다.',
         inputSchema: { sourceImageUrl: z.string().describe('공개 접근 가능한 원본 이미지 URL'), userId: z.string().optional() },
       },
@@ -402,7 +402,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'generate_sabangpalbang_angle',
       {
-        title: '사방팔방 앵글 이미지 생성',
+        title: '요모조모 앵글 이미지 생성',
         description: '지정한 앵글(uos_sabangpalbang_angles.id) 하나를 실제로 생성한다.',
         inputSchema: { angleId: z.string() },
       },
@@ -425,11 +425,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 썸네일 이상형 월드컵 ─────────────────────────────────────────
+    // ── 썸네일 리믹스 ─────────────────────────────────────────
     server.registerTool(
       'create_thumbarena',
       {
-        title: '썸네일 이상형 월드컵 프로젝트 생성',
+        title: '썸네일 리믹스 프로젝트 생성',
         description: '이미 호스팅된 썸네일 후보 이미지 URL 목록(2의 거듭제곱 개수)으로 토너먼트 프로젝트를 만든다.',
         inputSchema: { imageUrls: z.array(z.string()).min(2), userId: z.string().optional() },
       },
@@ -456,7 +456,7 @@ const baseHandler = createMcpHandler(
     server.registerTool(
       'pick_thumbarena_winner',
       {
-        title: '썸네일 이상형 월드컵 우승 확정',
+        title: '썸네일 리믹스 우승 확정',
         description: '토너먼트 프로젝트에 최종 우승 썸네일 URL을 저장하고 상태를 done으로 바꾼다.',
         inputSchema: { projectId: z.string(), winnerUrl: z.string() },
       },
@@ -477,11 +477,11 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 진실의방 ─────────────────────────────────────────────────────
+    // ── 직언의방 ─────────────────────────────────────────────────────
     server.registerTool(
       'send_truthroom_message',
       {
-        title: '진실의방에 메시지 보내기',
+        title: '직언의방에 메시지 보내기',
         description: '창업 멘토 페르소나로 답장을 생성하고, 사용자/AI 메시지를 uos_truthroom_messages에 저장한다.',
         inputSchema: { content: z.string(), userId: z.string().optional() },
       },
@@ -576,12 +576,12 @@ const baseHandler = createMcpHandler(
     instructions:
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
-      '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷대리: generate_cutdaeri/' +
-      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱대리·숏대리: ' +
-      'generate_longdaeri/split_shortdaeri, 업로드 처방전: generate_uploadrx, 사방팔방: ' +
-      'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 이상형 월드컵: create_thumbarena/' +
-      'pick_thumbarena_winner, 진실의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
-      '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 부테나는 관리자 큐레이션 ' +
+      '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
+      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서·숏폼비서: ' +
+      'generate_longdaeri/split_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
+      'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbarena/' +
+      'pick_thumbarena_winner, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
+      '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 관리자 큐레이션 ' +
       '갤러리라 전용 생성 도구가 없다 — search_shorts(유파인더 MCP)로 후보를 찾고 upsert_row로 ' +
       'uos_butena_cases에 직접 넣을 것. render_cutdaeri는 상태만 바꾸고 실제 합성은 U-Short 로컬 워커가 ' +
       '처리하므로 워커가 켜져 있어야 한다. YouTube/TikTok/Instagram/Facebook/X는 아직 OAuth 앱 승인 전이라 ' +

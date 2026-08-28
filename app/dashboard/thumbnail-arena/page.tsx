@@ -42,7 +42,7 @@ export default function ThumbnailArenaPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">썸네일 이상형 월드컵</h1>
+      <h1 className="text-2xl font-black mb-1">썸네일 리믹스</h1>
       <p className="text-sm text-muted mb-8">후보 썸네일을 올리고 토너먼트로 골라 가장 반응 좋을 것 같은 걸 찾아보세요.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">

@@ -78,12 +78,12 @@ const LIMIT_ROWS: { label: { ko: string; en: string }; values: string[]; group?:
   { group: '제작 (상한)', label: { ko: '이미지', en: 'Images' }, values: ['—', '—', '60장', '200장'] },
   { label: { ko: '동영상', en: 'Video' }, values: ['—', '—', '30회', '90회'] },
   { label: { ko: '음성 (TTS)', en: 'Voice (TTS)' }, values: ['—', '—', '5,000자', '20,000자'] },
-  { group: '원고 · 리서치', label: { ko: '진실의 방', en: 'Truth Room' }, values: ['—', '∞', '∞', '∞'] },
-  { label: { ko: '부테나 검색', en: 'Butena search' }, values: ['∞', '∞', '∞', '∞'] },
-  { label: { ko: '부테나 분석', en: 'Butena analysis' }, values: ['—', '∞', '∞', '∞'] },
-  { label: { ko: '롱대리 · 숏대리', en: 'Long/Short Daeri' }, values: ['—', '∞', '∞', '∞'] },
-  { label: { ko: '가사도우미', en: 'Lyrics helper' }, values: ['—', '∞', '∞', '∞'] },
-  { label: { ko: '업로드 처방전', en: 'Upload Rx' }, values: ['—', '∞', '∞', '∞'] },
+  { group: '원고 · 리서치', label: { ko: '직언의방', en: 'Candid Room' }, values: ['—', '∞', '∞', '∞'] },
+  { label: { ko: '떡상레이더 검색', en: 'Viral Radar search' }, values: ['∞', '∞', '∞', '∞'] },
+  { label: { ko: '떡상레이더 분석', en: 'Viral Radar analysis' }, values: ['—', '∞', '∞', '∞'] },
+  { label: { ko: '롱폼비서 · 숏폼비서', en: 'Longform/Shortform Secretary' }, values: ['—', '∞', '∞', '∞'] },
+  { label: { ko: '가사비서', en: 'Lyrics Secretary' }, values: ['—', '∞', '∞', '∞'] },
+  { label: { ko: '업로드 클리닉', en: 'Upload Clinic' }, values: ['—', '∞', '∞', '∞'] },
   { group: '원샷배포 (배포)', label: { ko: '원샷배포', en: 'Multi Publisher' }, values: ['2회/월', '1회/일', '3회/일', '10회/일'] },
 ];
 

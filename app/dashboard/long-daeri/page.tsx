@@ -42,7 +42,7 @@ export default function LongDaeriPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">롱대리 · 숏대리</h1>
+      <h1 className="text-2xl font-black mb-1">롱폼비서 · 숏폼비서</h1>
       <p className="text-sm text-muted mb-8">주제 하나로 롱폼 원고를 쓰고, 그 원고를 숏폼 대본 여러 편으로 나눠보세요.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">

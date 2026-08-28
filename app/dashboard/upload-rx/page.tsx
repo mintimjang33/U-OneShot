@@ -74,7 +74,7 @@ export default function UploadRxPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-black mb-1">업로드 처방전</h1>
+      <h1 className="text-2xl font-black mb-1">업로드 클리닉</h1>
       <p className="text-sm text-muted mb-8">키워드만 입력하면 클릭을 부르는 제목·설명·해시태그를 만들어 드립니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">

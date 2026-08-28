@@ -32,7 +32,7 @@ export default function ButenaPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">부테나</h1>
+      <h1 className="text-2xl font-black mb-1">떡상레이더</h1>
       <p className="text-sm text-muted mb-8">우연히 터진 게 아닙니다 — 무명에서 성장한 영상들의 공통점을 사례로 살펴보세요.</p>
 
       {loading && <p className="text-sm text-muted">불러오는 중...</p>}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 
-// 부테나는 사용자별 데이터가 아니라 관리자가 큐레이션한 공유 갤러리다(uos_butena_cases에 user_id 없음).
+// 떡상레이더는 사용자별 데이터가 아니라 관리자가 큐레이션한 공유 갤러리다(uos_butena_cases에 user_id 없음).
 // 생성/수정은 MCP(upsert_row)로만 하고, 이 라우트는 로그인한 사용자에게 조회만 제공한다.
 export async function GET() {
   const user = await getCurrentUser();

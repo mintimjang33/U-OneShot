@@ -72,7 +72,7 @@ export default function ThumbnailArenaProjectPage({ params }: { params: Promise<
 
   return (
     <div className="max-w-3xl text-center">
-      <h1 className="text-2xl font-black mb-1">썸네일 이상형 월드컵</h1>
+      <h1 className="text-2xl font-black mb-1">썸네일 리믹스</h1>
       <p className="text-sm text-muted mb-8">더 끌리는 쪽을 골라주세요 (남은 후보 {totalLeft}장)</p>
 
       <div className="grid grid-cols-2 gap-6">
