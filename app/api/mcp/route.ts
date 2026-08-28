@@ -28,6 +28,8 @@ const ALLOWED_TABLES = [
   'uos_shortdaeri_items',
   'uos_uploadrx_items',
   'uos_butena_cases',
+  'uos_sabangpalbang_projects',
+  'uos_sabangpalbang_angles',
 ];
 
 function textResult(text: string) {

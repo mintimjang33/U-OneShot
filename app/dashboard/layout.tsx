@@ -6,6 +6,8 @@ const NAV = [
   { href: '/dashboard/long-daeri', label: '롱대리 · 숏대리', ready: true },
   { href: '/dashboard/upload-rx', label: '업로드 처방전', ready: true },
   { href: '/dashboard/butena', label: '부테나', ready: true },
+  { href: '/dashboard/sabangpalbang', label: '사방팔방', ready: true },
+  { href: '/dashboard/thumbnail-arena', label: '썸네일 이상형 월드컵', ready: false },
   { href: '/dashboard/truth-room', label: '진실의방', ready: false },
 ];
 
