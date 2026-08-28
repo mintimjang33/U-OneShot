@@ -28,7 +28,7 @@ import {
   LYRICS_VOCAL_TYPES,
 } from '../../../lib/generateScript';
 import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
-import { generateCutVoice } from '../../../lib/generateVoice';
+import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
 // userId를 생략한 도구 호출은 운영자 본인 계정(MCP_OWNER_USER_ID)을 기본으로 쓴다.
@@ -70,6 +70,7 @@ const ALLOWED_TABLES = [
   'uos_thumbnailremix_projects',
   'uos_truthroom_messages',
   'uos_lyrics_projects',
+  'uos_readingbox_scripts',
 ];
 
 function textResult(text: string) {
@@ -605,6 +606,61 @@ const baseHandler = createMcpHandler(
       }
     );
 
+    // ── 리딩박스 ─────────────────────────────────────────────────────
+    server.registerTool(
+      'save_readingbox_script',
+      {
+        title: '리딩박스 — 원고 저장',
+        description: '제목+내용으로 원고를 uos_readingbox_scripts에 저장한다. 재생(TTS)은 play_readingbox_script로 별도 실행한다.',
+        inputSchema: { title: z.string(), content: z.string(), userId: z.string().optional() },
+      },
+      async ({ title, content, userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { data: script, error } = await supabase
+            .from('uos_readingbox_scripts')
+            .insert({ user_id: uid, title, content })
+            .select()
+            .single();
+          if (error || !script) throw new Error(error?.message || '저장 실패');
+          return textResult(JSON.stringify(script, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'play_readingbox_script',
+      {
+        title: '리딩박스 — 원고 낭독(TTS)',
+        description: '저장된 원고를 TTS로 합성해 오디오 URL을 반환한다. 이미 합성된 적 있으면 캐싱된 URL을 바로 반환한다.',
+        inputSchema: { scriptId: z.string(), userId: z.string().optional() },
+      },
+      async ({ scriptId, userId }) => {
+        try {
+          const uid = resolveUserId(userId);
+          const supabase = getSupabaseServerClient();
+          const { data: script, error: fetchError } = await supabase
+            .from('uos_readingbox_scripts')
+            .select('*')
+            .eq('id', scriptId)
+            .eq('user_id', uid)
+            .single();
+          if (fetchError || !script) throw new Error('원고를 찾을 수 없습니다.');
+          if (script.audio_url) return textResult(script.audio_url);
+
+          const { audioUrl } = await generateReadingBoxVoice(scriptId, script.content);
+          const { error: updateError } = await supabase.from('uos_readingbox_scripts').update({ audio_url: audioUrl }).eq('id', scriptId);
+          if (updateError) throw new Error(updateError.message);
+          return textResult(audioUrl);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
     // ── 직언의방 ─────────────────────────────────────────────────────
     server.registerTool(
       'send_truthroom_message',
@@ -704,11 +760,12 @@ const baseHandler = createMcpHandler(
     instructions:
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
-      '11개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
+      '11개 기능(9번째 떡상레이더는 검색형이라 전용 생성 도구 없음) 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
       'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
       '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbnail_variation/' +
-      'create_thumbnail_copywriting, 가사비서: generate_lyrics, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
+      'create_thumbnail_copywriting, 가사비서: generate_lyrics, 리딩박스: save_readingbox_script/play_readingbox_script, ' +
+      '직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
       '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 사용자가 ' +
       '키워드/유튜브 링크로 직접 검색하는 도구로 바뀌어서(searchViralVideos, YOUTUBE_DATA_API_KEY 필요) 전용 ' +
       'MCP 생성 도구는 없다 — 필요하면 get_rows로 uos_butena_search_history/uos_butena_cases를 조회할 것. ' +

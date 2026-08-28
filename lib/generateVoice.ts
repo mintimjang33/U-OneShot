@@ -26,3 +26,26 @@ export async function generateCutVoice(cutId: string, text: string): Promise<{ a
   const { data } = supabase.storage.from('cutdaeri-assets').getPublicUrl(path);
   return { audioUrl: data.publicUrl };
 }
+
+// 리딩박스(8-10절): 저장된 원고를 클릭 한 번으로 낭독. 기존 컷비서용 TTS와 동일한 방식(ElevenLabs)과
+// 버킷(cutdaeri-assets, 이미 동작 확인됨)을 재사용한다.
+export async function generateReadingBoxVoice(scriptId: string, text: string): Promise<{ audioUrl: string }> {
+  const apiKey = await getRemoteConfig('ELEVENLABS_API_KEY');
+  if (!apiKey) throw new Error('ELEVENLABS_API_KEY가 설정되어 있지 않습니다.');
+
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${DEFAULT_VOICE_ID}`, {
+    method: 'POST',
+    headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2' }),
+  });
+  if (!res.ok) throw new Error(`TTS 생성 실패 (${res.status}): ${(await res.text()).slice(0, 300)}`);
+
+  const audioBuffer = Buffer.from(await res.arrayBuffer());
+  const supabase = getSupabaseServerClient();
+  const path = `readingbox-${scriptId}-${Date.now()}.mp3`;
+  const { error: uploadError } = await supabase.storage.from('cutdaeri-assets').upload(path, audioBuffer, { contentType: 'audio/mpeg', upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data } = supabase.storage.from('cutdaeri-assets').getPublicUrl(path);
+  return { audioUrl: data.publicUrl };
+}

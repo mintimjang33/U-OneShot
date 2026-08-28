@@ -13,7 +13,7 @@ const NAV = [
   { href: '/dashboard/sabangpalbang', label: '요모조모', ready: true },
   { href: '/dashboard/upload-rx', label: '업로드 클리닉', ready: true },
   { href: '/dashboard/thumbnail-arena', label: '썸네일 리믹스', ready: true },
-  { href: '/dashboard/reading-box', label: '리딩박스', ready: false },
+  { href: '/dashboard/reading-box', label: '리딩박스', ready: true },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
