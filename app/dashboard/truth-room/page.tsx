@@ -4,8 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
+// 원본(8-2절) 실측 예시 질문의 취지를 참고해 우리 표현으로 새로 쓴 예시들.
+const SUGGESTED_PROMPTS = [
+  '시청자가 영상 중간에 못 이탈하게 만드는 장치는?',
+  '무자본으로 시작해서 대형 채널을 앞지르는 전략은?',
+  '시청자가 "이거 완전 내 얘기잖아" 하고 몰입하게 만드는 법은?',
+  '경쟁 채널과 손잡는 게 나을까, 각자 가는 게 나을까?',
+  '악플 다는 사람을 오히려 팬으로 만드는 방법은?',
+  '채널 아트 하나로 "전문가다" 싶게 만드는 법은?',
+];
+
 export default function TruthRoomPage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [username, setUsername] = useState('');
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,16 +25,18 @@ export default function TruthRoomPage() {
   useEffect(() => {
     fetch('/api/truth-room')
       .then((r) => r.json())
-      .then((d) => setMessages(d.messages || []));
+      .then((d) => {
+        setMessages(d.messages || []);
+        setUsername(d.username || '');
+      });
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function handleSend() {
-    if (!input.trim() || sending) return;
-    const content = input;
+  async function send(content: string) {
+    if (!content.trim() || sending) return;
     setInput('');
     setError(null);
     setMessages((prev) => [...prev, { role: 'user', content }]);
@@ -46,11 +59,26 @@ export default function TruthRoomPage() {
   return (
     <div className="max-w-2xl flex flex-col h-[calc(100vh-3rem)]">
       <h1 className="text-2xl font-black mb-1">직언의방</h1>
-      <p className="text-sm text-muted mb-6">1시간 티타임을 기다릴 필요 없습니다 — 핑계 대신 현실적인 피드백을 받아보세요.</p>
+      <p className="text-sm text-muted mb-6">듣기 좋은 말 말고, 진짜 조언 — 도플러에게 뭐든 물어보세요.</p>
 
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
         {messages.length === 0 && (
-          <p className="text-sm text-muted">사업 아이디어나 고민을 편하게 털어놓아 보세요. 돌려 말하지 않을게요.</p>
+          <div>
+            <p className="text-lg font-black mb-1">반갑습니다, {username}님.</p>
+            <p className="text-sm text-muted mb-6">무엇이든 도플러에게 물어보십시오.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {SUGGESTED_PROMPTS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => send(q)}
+                  className="text-left text-xs border border-border rounded-[var(--radius-card-sm)] px-3 py-2.5 hover:border-accent"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -73,19 +101,20 @@ export default function TruthRoomPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="고민을 입력하세요"
+          onKeyDown={(e) => e.key === 'Enter' && send(input)}
+          placeholder="도플러에게 질문하거나 명령하세요..."
           className="flex-1 border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
         />
         <button
           type="button"
-          onClick={handleSend}
+          onClick={() => send(input)}
           disabled={sending || !input.trim()}
           className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
         >
           보내기
         </button>
       </div>
+      <p className="text-[10px] text-muted mt-2">질문과 답변은 직언의방 서비스 개선을 위해 수집될 수 있습니다.</p>
     </div>
   );
 }

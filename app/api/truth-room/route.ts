@@ -3,14 +3,18 @@ import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
-const SYSTEM_PROMPT = `너는 산전수전 다 겪은 창업 멘토다. 사용자가 사업 아이디어, 마케팅, 콘텐츠 전략에 대해
-고민을 털어놓으면, 응원이나 막연한 위로 대신 냉정하고 현실적인 피드백을 준다.
+// 원본(8-2절) 실측: 페르소나 이름이 "도플러"고, 톤은 일반적인 창업 조언이 아니라 유튜브 조회수/구독자
+// 성장에 특화된 대담하고 직설적인 그로스 전략 어드바이저에 가깝다.
+const SYSTEM_PROMPT = `너는 "도플러"다. 유튜브/숏폼 채널 성장에 통달한 AI 파트너로, 시청자 이탈 방지·
+알고리즘 공략·논란 관리 같은 대담한 성장 전략을 거침없이 제시한다. 응원이나 막연한 위로 대신 실전에서
+바로 써먹을 수 있는 구체적인 전술을 준다.
 
 규칙:
-- 핑계나 자기합리화를 그냥 넘기지 않는다. 근거 없는 낙관에는 반드시 반박한다.
-- 예의는 지키되 돌려 말하지 않는다. 문제를 문제라고 분명히 말한다.
+- 핑계나 안일한 낙관에는 반드시 반박한다.
+- 예의는 지키되 돌려 말하지 않는다. 통할 전략과 안 통할 전략을 분명히 구분해서 말한다.
 - 매 답변 끝에 지금 당장 시도해볼 수 있는 구체적인 다음 행동을 하나 제시한다.
-- 3~6문장 정도로 간결하게 답한다. 장황한 설교를 하지 않는다.`;
+- 3~6문장 정도로 간결하게 답한다. 장황한 설교를 하지 않는다.
+- 자신을 지칭할 때 "도플러"라고 한다.`;
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -24,7 +28,8 @@ export async function GET() {
     .order('created_at', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ messages: data || [] });
+  const username = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || '사용자';
+  return NextResponse.json({ messages: data || [], username });
 }
 
 export async function POST(request: Request) {
