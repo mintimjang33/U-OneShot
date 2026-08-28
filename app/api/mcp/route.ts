@@ -50,6 +50,7 @@ const ALLOWED_TABLES = [
   'uos_shortdaeri_items',
   'uos_uploadrx_items',
   'uos_butena_cases',
+  'uos_butena_search_history',
   'uos_sabangpalbang_projects',
   'uos_sabangpalbang_angles',
   'uos_thumbarena_projects',
@@ -620,9 +621,10 @@ const baseHandler = createMcpHandler(
       'generate_longdaeri/split_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbarena/' +
       'pick_thumbarena_winner, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
-      '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 관리자 큐레이션 ' +
-      '갤러리라 전용 생성 도구가 없다 — search_shorts(유파인더 MCP)로 후보를 찾고 upsert_row로 ' +
-      'uos_butena_cases에 직접 넣을 것. render_cutdaeri는 상태만 바꾸고 실제 합성은 U-Short 로컬 워커가 ' +
+      '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 사용자가 ' +
+      '키워드/유튜브 링크로 직접 검색하는 도구로 바뀌어서(searchViralVideos, YOUTUBE_DATA_API_KEY 필요) 전용 ' +
+      'MCP 생성 도구는 없다 — 필요하면 get_rows로 uos_butena_search_history/uos_butena_cases를 조회할 것. ' +
+      'render_cutdaeri는 상태만 바꾸고 실제 합성은 U-Short 로컬 워커가 ' +
       '처리하므로 워커가 켜져 있어야 한다. YouTube/TikTok/Instagram/Facebook/X는 아직 OAuth 앱 승인 전이라 ' +
       '발행 도구가 없다 — uos_publish_targets에 not_configured 상태로만 기록된다.',
     verboseLogs: true,
