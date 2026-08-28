@@ -24,6 +24,10 @@ const ALLOWED_TABLES = [
   'uos_subscriptions',
   'uos_cutdaeri_projects',
   'uos_cutdaeri_cuts',
+  'uos_longdaeri_projects',
+  'uos_shortdaeri_items',
+  'uos_uploadrx_items',
+  'uos_butena_cases',
 ];
 
 function textResult(text: string) {

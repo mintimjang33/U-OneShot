@@ -5,7 +5,7 @@ const NAV = [
   { href: '/dashboard/cut-daeri', label: '컷대리', ready: true },
   { href: '/dashboard/long-daeri', label: '롱대리 · 숏대리', ready: true },
   { href: '/dashboard/upload-rx', label: '업로드 처방전', ready: true },
-  { href: '/dashboard/butena', label: '부테나', ready: false },
+  { href: '/dashboard/butena', label: '부테나', ready: true },
   { href: '/dashboard/truth-room', label: '진실의방', ready: false },
 ];
 
