@@ -39,7 +39,7 @@ async function getFreshAccessToken(account: YoutubeAccount): Promise<string> {
 // 여기서 직접 처리하기 어려울 수 있음(컷대리의 로컬 워커에서 처리하는 방향으로 나중에 옮길 수 있음).
 // 지금은 짧은 테스트 영상 기준으로 동작하는 단순 업로드로 구현한다.
 export async function publishYoutubeVideoNow(
-  input: { title: string; description: string; videoUrl: string; madeForKids?: boolean; privacy?: 'public' | 'private' },
+  input: { title: string; description: string; videoUrl: string; tags?: string[]; madeForKids?: boolean; privacy?: 'public' | 'private' },
   account: YoutubeAccount
 ): Promise<{ videoId: string }> {
   const accessToken = await getFreshAccessToken(account);
@@ -59,7 +59,7 @@ export async function publishYoutubeVideoNow(
         'X-Upload-Content-Length': String(videoBuffer.length),
       },
       body: JSON.stringify({
-        snippet: { title: input.title, description: input.description },
+        snippet: { title: input.title, description: input.description, tags: input.tags?.length ? input.tags : undefined },
         status: { privacyStatus: input.privacy || 'private', selfDeclaredMadeForKids: Boolean(input.madeForKids) },
       }),
     }

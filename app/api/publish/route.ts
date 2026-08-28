@@ -56,7 +56,14 @@ async function publishOne(
       case 'youtube': {
         if (!videoUrl) return { status: 'failed', error: 'YouTube는 영상이 필요합니다(컷비서로 영상 생성 후 이용 가능).' };
         const result = await publishYoutubeVideoNow(
-          { title: target.title || '', description: target.body || '', videoUrl, madeForKids: Boolean(target.options?.madeForKids), privacy: (target.visibility as 'public' | 'private') || 'private' },
+          {
+            title: target.title || '',
+            description: target.body || '',
+            videoUrl,
+            tags: target.options?.tags as string[] | undefined,
+            madeForKids: Boolean(target.options?.madeForKids),
+            privacy: (target.visibility as 'public' | 'private') || 'private',
+          },
           account
         );
         return { status: 'posted', postId: result.videoId };
@@ -67,9 +74,11 @@ async function publishOne(
           {
             caption: target.body || '',
             videoUrl,
+            privacyLevel: target.visibility as string | undefined,
             allowComment: target.options?.allowComment as boolean | undefined,
             allowDuet: target.options?.allowDuet as boolean | undefined,
             allowStitch: target.options?.allowStitch as boolean | undefined,
+            ownBrand: target.options?.ownBrand as boolean | undefined,
             brandedContent: target.options?.brandedContent as boolean | undefined,
           },
           account
@@ -84,6 +93,43 @@ async function publishOne(
   }
 }
 
+// GET: 원본 실측(8-0절) 기준 "예약된 발행" + "최근 실행 결과(최대 20건)" 섹션에 쓰는 목록 조회.
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+
+  const supabase = getSupabaseServerClient();
+
+  const { data: scheduled } = await supabase
+    .from('uos_publish_jobs')
+    .select('*, uos_publish_targets(*)')
+    .eq('user_id', user.id)
+    .eq('status', 'scheduled')
+    .order('scheduled_at', { ascending: true });
+
+  const { data: recent } = await supabase
+    .from('uos_publish_jobs')
+    .select('*, uos_publish_targets(*)')
+    .eq('user_id', user.id)
+    .in('status', ['publishing', 'done', 'failed'])
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  return NextResponse.json({ scheduled: scheduled || [], recent: recent || [] });
+}
+
+// DELETE: "이력 비우기" — 예약이 아닌(발행 완료/실패/진행) 작업 기록을 지운다.
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase.from('uos_publish_jobs').delete().eq('user_id', user.id).in('status', ['publishing', 'done', 'failed']);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
@@ -92,40 +138,50 @@ export async function POST(request: Request) {
   const targets: TargetInput[] = body?.targets || [];
   if (targets.length === 0) return NextResponse.json({ error: '최소 1개 플랫폼을 선택해주세요.' }, { status: 400 });
 
-  const quotaError = await checkMultiPublishQuota(user.id);
-  if (quotaError) return NextResponse.json({ error: quotaError }, { status: 402 });
+  const saveOnly: boolean = Boolean(body?.saveOnly);
+  const scheduledAt: string | null = body?.scheduledAt || null;
+
+  // 저장/예약은 실제 발행이 아니므로 한도를 쓰지 않는다 — 진짜 발행할 때만 체크한다.
+  if (!saveOnly && !scheduledAt) {
+    const quotaError = await checkMultiPublishQuota(user.id);
+    if (quotaError) return NextResponse.json({ error: quotaError }, { status: 402 });
+  }
 
   const supabase = getSupabaseServerClient();
   const videoUrl: string | null = body?.videoUrl || null;
 
+  const initialStatus = saveOnly ? 'draft' : scheduledAt ? 'scheduled' : 'publishing';
   const { data: job, error: jobError } = await supabase
     .from('uos_publish_jobs')
-    .insert({ user_id: user.id, video_url: videoUrl, status: 'publishing' })
+    .insert({ user_id: user.id, video_url: videoUrl, status: initialStatus, scheduled_at: scheduledAt })
     .select()
     .single();
   if (jobError || !job) return NextResponse.json({ error: jobError?.message || '작업 생성 실패' }, { status: 500 });
 
+  for (const target of targets) {
+    await supabase.from('uos_publish_targets').insert({
+      job_id: job.id,
+      platform: target.platform,
+      account_id: target.accountId || null,
+      title: target.title || null,
+      body: target.body || null,
+      visibility: target.visibility || null,
+      options: target.options || {},
+      status: 'pending',
+    });
+  }
+
+  // 저장만 하거나 예약을 건 경우 여기서 끝 — 예약 실행은 별도 스케줄러가 필요하며 아직 없음(HongHub에 기록됨).
+  if (saveOnly || scheduledAt) {
+    return NextResponse.json({ jobId: job.id, status: initialStatus });
+  }
+
+  const targetRows = await supabase.from('uos_publish_targets').select('*').eq('job_id', job.id);
   const results: Record<string, { status: string; postId?: string; error?: string }> = {};
 
-  for (const target of targets) {
-    const insertRes = await supabase
-      .from('uos_publish_targets')
-      .insert({
-        job_id: job.id,
-        platform: target.platform,
-        account_id: target.accountId || null,
-        title: target.title || null,
-        body: target.body || null,
-        visibility: target.visibility || null,
-        options: target.options || {},
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    const row = insertRes.data;
-    if (!row) continue;
-
+  for (const row of targetRows.data || []) {
+    const target = targets.find((t) => t.platform === row.platform);
+    if (!target) continue;
     const result = await publishOne(supabase, user.id, target, videoUrl);
     results[target.platform] = result;
     await supabase
