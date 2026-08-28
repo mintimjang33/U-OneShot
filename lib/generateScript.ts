@@ -106,3 +106,26 @@ export async function generateShortDaeriScripts(longContent: string): Promise<{ 
   }
   return parsed.shorts;
 }
+
+// 업로드 처방전: 키워드 → 클릭을 부르는 제목 후보 여러 개 + 영상 설명(더보기) + 해시태그.
+export async function generateUploadRx(keyword: string): Promise<{ titles: string[]; description: string; hashtags: string[] }> {
+  const systemPrompt = `너는 유튜브·쇼츠 업로드 최적화 전문가다. 키워드 하나를 받아서 타깃 시청자의 클릭을
+부르는 제목 후보, 영상 설명(더보기), 해시태그를 만든다.
+
+규칙:
+- 제목은 서로 다른 후킹 방식(숫자/궁금증/반전/이득 강조)으로 5개를 만든다. 각 30자 이내.
+- 설명은 영상 내용 요약 2~3문장 + 시청자에게 도움이 되는 추가 정보로 구성한다(150~300자).
+- 해시태그는 검색 유입에 도움되는 것으로 8~12개, # 없이 단어만 준다.
+- 결과는 JSON만 출력한다: {"titles": ["제목1", ...], "description": "설명 텍스트", "hashtags": ["태그1", ...]}`;
+
+  const parsed = (await callClaudeForJSON(systemPrompt, `키워드: ${keyword}`, 2048)) as {
+    titles?: string[];
+    description?: string;
+    hashtags?: string[];
+  };
+
+  if (!Array.isArray(parsed.titles) || parsed.titles.length === 0 || !parsed.description || !Array.isArray(parsed.hashtags)) {
+    throw new Error('업로드 처방전 응답 형식이 올바르지 않습니다.');
+  }
+  return { titles: parsed.titles, description: parsed.description, hashtags: parsed.hashtags };
+}
