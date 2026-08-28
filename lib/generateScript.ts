@@ -1,10 +1,7 @@
 import { getRemoteConfig } from './remoteConfig';
 
-const TONE_LABEL: Record<string, string> = {
-  info: '정보 전달(객관적 사실 위주)',
-  story: '스토리텔링(경험담·서사 구조)',
-  persuade: '설득(주장과 근거 중심)',
-};
+// 원본(8-4절) 실측: 롱폼비서는 톤이 아니라 장르 카테고리로 먼저 분류한다.
+export const LONGDAERI_CATEGORIES = ['서양철학', '동양철학', '건강/운동', '운세/사주', '생활/꿀팁', '부처님 말씀', '성경', '인간관계/처세', '전통 야담'];
 
 // Claude에 JSON 응답을 요청하고 파싱까지 처리하는 공용 헬퍼. 롱대리/숏대리/컷대리가 전부 이 형태를 쓴다.
 async function callClaudeForJSON(systemPrompt: string, userMessage: string, maxTokens: number): Promise<unknown> {
@@ -67,22 +64,21 @@ export async function splitCutDaeriScript(script: string, cutCount: number): Pro
   return parsed.cuts;
 }
 
-// 롱대리: 주제 → 롱폼 원고(영상 나레이션 또는 아티클로 쓸 수 있는 긴 글). 숏대리가 이 원고를 재료로 쓴다.
-export async function generateLongDaeriScript(topic: string, tone: string): Promise<{ title: string; content: string }> {
-  const systemPrompt = `너는 롱폼 콘텐츠(유튜브 영상 나레이션 또는 블로그 아티클) 작가다. 주제 하나를 받아서
-1500~2500자 분량의 완성된 원고를 쓴다.
+// 롱폼비서: 카테고리(장르)+주제 → 롱폼 원고(영상 나레이션 또는 아티클로 쓸 수 있는 긴 글).
+export async function generateLongDaeriScript(topic: string, category: string): Promise<{ title: string; content: string }> {
+  const systemPrompt = `너는 ${category} 장르의 인생 조언·자기계발형 롱폼 콘텐츠(유튜브 영상 나레이션) 작가다.
+주제 하나를 받아서 1500~2500자 분량의 완성된 원고를 쓴다.
 
 규칙:
-- 도입(호기심을 자극하는 훅) → 본론(단계별 전개, 구체적 근거·사례 포함) → 결론(요약 또는 행동 촉구) 구조를 지킨다.
+- 도입(뇌리에 박히는 첫 문장) → 본론(단계별 전개, 구체적 근거·사례 포함) → 결론(마음에 남는 엔딩) 구조를 지킨다.
+- ${category} 장르의 관점과 어휘를 살려서 쓴다.
 - 문단을 나눠서 쓰고, 각 문단은 하나의 소주제만 다룬다.
-- 나중에 이 원고를 여러 개의 1분 분량 짧은 글로 재분할할 것이므로, 문단마다 독립적으로도 이해되게 쓴다.
 - 결과는 JSON만 출력한다: {"title": "원고 제목", "content": "전체 원고 텍스트(문단은 \\n\\n으로 구분)"}`;
 
-  const parsed = (await callClaudeForJSON(
-    systemPrompt,
-    `주제: ${topic}\n톤: ${TONE_LABEL[tone] || tone}`,
-    4096
-  )) as { title?: string; content?: string };
+  const parsed = (await callClaudeForJSON(systemPrompt, `주제: ${topic}\n카테고리: ${category}`, 4096)) as {
+    title?: string;
+    content?: string;
+  };
 
   if (!parsed.title || !parsed.content) {
     throw new Error('원고 생성 응답 형식이 올바르지 않습니다.');
@@ -90,16 +86,17 @@ export async function generateLongDaeriScript(topic: string, tone: string): Prom
   return { title: parsed.title, content: parsed.content };
 }
 
-// 숏대리: 롱대리 원고(또는 임의의 긴 글) → 1분 분량(약 200~280자) 숏폼 대본 여러 편으로 분할.
+// 숏폼비서: 아무 긴 글(800~1,500자 권장, 롱폼비서 원고일 필요 없음) → 정확히 10편의 1분 분량
+// 숏폼 대본으로 분할. 원본(8-5절)은 고정 10개를 만든다.
 export async function generateShortDaeriScripts(longContent: string): Promise<{ title: string; content: string }[]> {
   const systemPrompt = `너는 숏폼 영상 대본 작가다. 긴 원고 하나를 받아서, 그 안에 담긴 소주제들을 뽑아
-각각 독립적으로 완결되는 1분 분량(약 200~280자) 숏폼 나레이션 대본 여러 편으로 재구성한다.
+각각 독립적으로 완결되는 1분 분량(약 200~280자) 숏폼 나레이션 대본 정확히 10편으로 재구성한다.
 
 규칙:
-- 원고에 담긴 소주제 개수에 맞춰 4~8편을 만든다(원고가 짧으면 4편, 풍부하면 8편까지).
+- 반드시 10편을 만든다. 원고가 짧으면 같은 소주제를 다른 각도로 풀어서라도 10편을 채운다.
 - 각 편은 원문을 그대로 잘라내지 말고, 훅으로 시작해서 그 소주제 하나만 완결되게 새로 쓴다.
 - 각 편에 짧고 클릭을 부르는 제목을 붙인다.
-- 결과는 JSON만 출력한다: {"shorts": [{"title": "제목1", "content": "대본1"}, {"title": "제목2", "content": "대본2"}, ...]}`;
+- 결과는 JSON만 출력한다: {"shorts": [{"title": "제목1", "content": "대본1"}, ...]} (배열 길이는 반드시 10)`;
 
   const parsed = (await callClaudeForJSON(systemPrompt, `원고:\n${longContent}`, 4096)) as {
     shorts?: { title: string; content: string }[];

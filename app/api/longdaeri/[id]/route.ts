@@ -11,9 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: project } = await supabase.from('uos_longdaeri_projects').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
   if (!project) return NextResponse.json({ error: '프로젝트를 찾을 수 없습니다.' }, { status: 404 });
 
-  const { data: shorts } = await supabase.from('uos_shortdaeri_items').select('*').eq('project_id', id).order('order_index', { ascending: true });
-
-  return NextResponse.json({ project, shorts: shorts || [] });
+  return NextResponse.json({ project });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {

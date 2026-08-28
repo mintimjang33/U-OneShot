@@ -13,7 +13,14 @@ import { createMcpHandler } from 'mcp-handler';
 import { z } from 'zod';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { publishThreadPostNow } from '../../../lib/publishThreadPost';
-import { splitCutDaeriScript, suggestCutDaeriTopic, generateLongDaeriScript, generateShortDaeriScripts, generateUploadRx } from '../../../lib/generateScript';
+import {
+  splitCutDaeriScript,
+  suggestCutDaeriTopic,
+  generateLongDaeriScript,
+  LONGDAERI_CATEGORIES,
+  generateShortDaeriScripts,
+  generateUploadRx,
+} from '../../../lib/generateScript';
 import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
 import { generateCutVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
@@ -47,6 +54,7 @@ const ALLOWED_TABLES = [
   'uos_cutdaeri_projects',
   'uos_cutdaeri_cuts',
   'uos_longdaeri_projects',
+  'uos_shortdaeri_projects',
   'uos_shortdaeri_items',
   'uos_uploadrx_items',
   'uos_butena_cases',
@@ -331,26 +339,26 @@ const baseHandler = createMcpHandler(
       }
     );
 
-    // ── 롱폼비서 · 숏폼비서 ──────────────────────────────────────────────
+    // ── 롱폼비서 ───────────────────────────────────────────────────────
     server.registerTool(
       'generate_longdaeri',
       {
         title: '롱폼비서 원고 생성',
-        description: '주제→1500~2500자 롱폼 원고를 생성해 uos_longdaeri_projects에 저장한다.',
+        description: '카테고리(장르)+주제→1500~2500자 롱폼 원고를 생성해 uos_longdaeri_projects에 저장한다.',
         inputSchema: {
           topic: z.string(),
-          tone: z.enum(['info', 'story', 'persuade']).optional(),
+          category: z.enum(LONGDAERI_CATEGORIES as [string, ...string[]]).optional(),
           userId: z.string().optional(),
         },
       },
-      async ({ topic, tone = 'info', userId }) => {
+      async ({ topic, category = LONGDAERI_CATEGORIES[0], userId }) => {
         try {
           const uid = resolveUserId(userId);
-          const { title, content } = await generateLongDaeriScript(topic, tone);
+          const { title, content } = await generateLongDaeriScript(topic, category);
           const supabase = getSupabaseServerClient();
           const { data: project, error } = await supabase
             .from('uos_longdaeri_projects')
-            .insert({ user_id: uid, topic, tone, title, content, status: 'done' })
+            .insert({ user_id: uid, topic, category, title, content, status: 'done' })
             .select()
             .single();
           if (error || !project) throw new Error(error?.message || '생성 실패');
@@ -361,24 +369,29 @@ const baseHandler = createMcpHandler(
       }
     );
 
+    // ── 숏폼비서 (독립 도구 — 롱폼비서에 종속되지 않음) ─────────────────────
     server.registerTool(
-      'split_shortdaeri',
+      'generate_shortdaeri',
       {
-        title: '숏폼비서 — 롱폼비서 원고를 숏폼으로 분할',
-        description: '기존 uos_longdaeri_projects 원고를 1분 분량 숏폼 대본 4~8편으로 분할해 uos_shortdaeri_items에 저장한다(재분할 시 기존 결과 대체).',
-        inputSchema: { projectId: z.string() },
+        title: '숏폼비서 — 긴 글을 숏폼 10편으로 분할',
+        description: '아무 긴 글(800~1,500자 권장, 롱폼비서 원고가 아니어도 됨)을 받아 1분 분량 숏폼 대본 정확히 10편으로 분할해 uos_shortdaeri_projects/uos_shortdaeri_items에 저장한다.',
+        inputSchema: { sourceText: z.string(), userId: z.string().optional() },
       },
-      async ({ projectId }) => {
+      async ({ sourceText, userId }) => {
         try {
+          const uid = resolveUserId(userId);
           const supabase = getSupabaseServerClient();
-          const { data: project } = await supabase.from('uos_longdaeri_projects').select('*').eq('id', projectId).maybeSingle();
-          if (!project?.content) throw new Error('원고를 찾을 수 없거나 내용이 없습니다.');
-          const shorts = await generateShortDaeriScripts(project.content);
-          await supabase.from('uos_shortdaeri_items').delete().eq('project_id', projectId);
-          const rows = shorts.map((s, i) => ({ project_id: projectId, order_index: i, title: s.title, content: s.content }));
-          const { data: inserted, error } = await supabase.from('uos_shortdaeri_items').insert(rows).select();
-          if (error) throw new Error(error.message);
-          return textResult(JSON.stringify(inserted, null, 2));
+          const { data: project, error: pErr } = await supabase
+            .from('uos_shortdaeri_projects')
+            .insert({ user_id: uid, source_text: sourceText })
+            .select()
+            .single();
+          if (pErr || !project) throw new Error(pErr?.message || '프로젝트 생성 실패');
+          const shorts = await generateShortDaeriScripts(sourceText);
+          const rows = shorts.map((s, i) => ({ project_id: project.id, order_index: i, title: s.title, content: s.content }));
+          const { data: inserted, error: iErr } = await supabase.from('uos_shortdaeri_items').insert(rows).select();
+          if (iErr) throw new Error(iErr.message);
+          return textResult(JSON.stringify({ project, shorts: inserted }, null, 2));
         } catch (err) {
           return errorResult(err);
         }
@@ -617,8 +630,8 @@ const baseHandler = createMcpHandler(
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
       '10개 도구 기능 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
-      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서·숏폼비서: ' +
-      'generate_longdaeri/split_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
+      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
+      '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbarena/' +
       'pick_thumbarena_winner, 직언의방: send_truthroom_message — userId 생략 시 전부 MCP_OWNER_USER_ID를 ' +
       '기본으로 씀), GitHub 저장소 조회(list_github_files/get_github_file)를 제공한다. 떡상레이더는 사용자가 ' +

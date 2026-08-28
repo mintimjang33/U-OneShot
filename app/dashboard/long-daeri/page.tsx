@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Project = { id: string; topic: string; title: string | null; tone: string; created_at: string };
+type Project = { id: string; topic: string; title: string | null; category: string | null; created_at: string };
 
-const TONE_LABEL: Record<string, string> = { info: '정보 전달', story: '스토리텔링', persuade: '설득' };
+// 원본(8-4절) 실측 카테고리 그대로.
+const CATEGORIES = ['서양철학', '동양철학', '건강/운동', '운세/사주', '생활/꿀팁', '부처님 말씀', '성경', '인간관계/처세', '전통 야담'];
 
 export default function LongDaeriPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [topic, setTopic] = useState('');
-  const [tone, setTone] = useState('info');
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +30,7 @@ export default function LongDaeriPage() {
     const res = await fetch('/api/longdaeri', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, tone }),
+      body: JSON.stringify({ topic, category }),
     });
     const data = await res.json();
     setCreating(false);
@@ -42,25 +43,38 @@ export default function LongDaeriPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">롱폼비서 · 숏폼비서</h1>
-      <p className="text-sm text-muted mb-8">주제 하나로 롱폼 원고를 쓰고, 그 원고를 숏폼 대본 여러 편으로 나눠보세요.</p>
+      <div className="flex items-center gap-3 mb-1">
+        <h1 className="text-2xl font-black">롱폼비서</h1>
+        <span className="text-xs font-bold text-accent bg-accent-soft rounded-[var(--radius-pill)] px-2 py-0.5">1. 분류</span>
+      </div>
+      <p className="text-sm text-muted mb-8">뇌리에 박히는 첫 문장, 심장에 남는 엔딩 — 글쓰기의 고통은 롱폼비서에게.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
-        <h2 className="font-bold mb-4">새 원고</h2>
+        <div className="text-xs font-bold text-muted mb-2">분류</div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
+              className={`text-xs font-bold rounded-[var(--radius-card-sm)] border px-3 py-2.5 ${
+                category === c ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-xs font-bold text-muted mb-2">2. 주제</div>
         <textarea
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="주제를 입력하세요 (예: 퇴근 후 30분 홈트레이닝 루틴)"
+          placeholder="직접 기획한 주제를 입력하세요 (예: 60세에 깨달은 관계의 본질)"
           rows={2}
-          className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-3 resize-none"
+          className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-4 resize-none"
         />
-        <div className="flex gap-3 mb-4">
-          <select value={tone} onChange={(e) => setTone(e.target.value)} className="border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm">
-            <option value="info">정보 전달</option>
-            <option value="story">스토리텔링</option>
-            <option value="persuade">설득</option>
-          </select>
-        </div>
+
         {error && <div className="text-xs text-red-500 mb-3">{error}</div>}
         <button
           type="button"
@@ -68,7 +82,7 @@ export default function LongDaeriPage() {
           disabled={creating || !topic.trim()}
           className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-6 py-2.5 text-sm disabled:opacity-40"
         >
-          {creating ? '원고 생성 중...' : '원고 생성하기'}
+          {creating ? '집필 중...' : '3. 집필 →'}
         </button>
       </div>
 
@@ -83,7 +97,7 @@ export default function LongDaeriPage() {
           >
             <div>
               <div className="text-sm font-bold">{p.title || p.topic}</div>
-              <div className="text-xs text-muted">{TONE_LABEL[p.tone] || p.tone}</div>
+              <div className="text-xs text-muted">{p.category}</div>
             </div>
           </Link>
         ))}

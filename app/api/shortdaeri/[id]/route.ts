@@ -1,0 +1,17 @@
+import { NextResponse } from 'next/server';
+import { getSupabaseServerClient } from '../../../../lib/supabase';
+import { getCurrentUser } from '../../../../lib/supabaseServerAuth';
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  const { id } = await params;
+
+  const supabase = getSupabaseServerClient();
+  const { data: project } = await supabase.from('uos_shortdaeri_projects').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+  if (!project) return NextResponse.json({ error: '프로젝트를 찾을 수 없습니다.' }, { status: 404 });
+
+  const { data: shorts } = await supabase.from('uos_shortdaeri_items').select('*').eq('project_id', id).order('order_index', { ascending: true });
+
+  return NextResponse.json({ project, shorts: shorts || [] });
+}
