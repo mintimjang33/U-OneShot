@@ -57,7 +57,7 @@ export default function ShortDaeriPage() {
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-black mb-1">숏폼비서</h1>
-      <p className="text-sm text-muted mb-8">긴 영상 하나로 숏폼 10개, 클릭 한 번에 쏟아집니다.</p>
+      <p className="text-sm text-muted mb-8">긴 원고 하나만 넣으면 숏폼용 대본 10개로 쪼개드립니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="flex items-center justify-between mb-2">

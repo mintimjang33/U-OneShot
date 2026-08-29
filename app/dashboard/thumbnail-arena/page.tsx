@@ -65,7 +65,7 @@ export default function ThumbnailRemixPage() {
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-black mb-1">썸네일 리믹스</h1>
-      <p className="text-sm text-muted mb-8">썸네일 카피라이팅 변형 & A/B 테스트.</p>
+      <p className="text-sm text-muted mb-8">썸네일 이미지와 문구를 여러 버전으로 뽑아 비교해보세요.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="text-xs font-bold text-muted mb-2">입력 모드</div>

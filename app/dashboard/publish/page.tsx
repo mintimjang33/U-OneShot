@@ -260,7 +260,7 @@ export default function PublishPage() {
           현재 요금제: {tier.toUpperCase()}
         </a>
       </div>
-      <p className="text-sm text-muted mb-6">한 번의 업로드로 모든 숏폼 플랫폼을 겨냥하세요.</p>
+      <p className="text-sm text-muted mb-6">영상 하나만 올리면 6개 플랫폼에 동시에 나갑니다.</p>
 
       {quotaError && (
         <div className="mb-6 border border-accent bg-accent-soft text-accent text-sm rounded-[var(--radius-card)] px-4 py-3 flex items-center justify-between">
@@ -490,7 +490,7 @@ export default function PublishPage() {
           disabled={publishing || selectedCount === 0}
           className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-8 py-2.5 text-sm disabled:opacity-40 ml-auto"
         >
-          {publishing ? '처리 중...' : saveOnly ? '저장하기' : '살포하기'}
+          {publishing ? '처리 중...' : saveOnly ? '저장하기' : '배포하기'}
         </button>
       </div>
 

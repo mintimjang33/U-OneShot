@@ -76,7 +76,7 @@ export default function SabangpalbangPage() {
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-black mb-1">요모조모</h1>
-      <p className="text-sm text-muted mb-8">단 하나의 DNA, 여덟 가지 시선.</p>
+      <p className="text-sm text-muted mb-8">사진 한 장으로 각도가 다른 여덟 장을 만들어드립니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="text-xs font-bold text-muted mb-2">입력 모드</div>

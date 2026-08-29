@@ -69,7 +69,7 @@ export default function CutDaeriPage() {
         <h1 className="text-2xl font-black">컷비서</h1>
         <span className="text-xs font-bold text-accent bg-accent-soft rounded-[var(--radius-pill)] px-2 py-0.5">1. 원본 스크립트 입력</span>
       </div>
-      <p className="text-sm text-muted mb-8">AI가 만드는 영상, 크리에이터의 비전을 현실로.</p>
+      <p className="text-sm text-muted mb-8">대본만 있으면 컷 나누기부터 나레이션까지 AI가 이어받습니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="text-xs font-bold text-muted mb-2">컷 수 기반 분할</div>

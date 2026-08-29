@@ -47,7 +47,7 @@ export default function LongDaeriPage() {
         <h1 className="text-2xl font-black">롱폼비서</h1>
         <span className="text-xs font-bold text-accent bg-accent-soft rounded-[var(--radius-pill)] px-2 py-0.5">1. 분류</span>
       </div>
-      <p className="text-sm text-muted mb-8">뇌리에 박히는 첫 문장, 심장에 남는 엔딩 — 글쓰기의 고통은 롱폼비서에게.</p>
+      <p className="text-sm text-muted mb-8">주제와 장르만 정하면 첫 문장부터 마무리까지 대신 써드립니다.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="text-xs font-bold text-muted mb-2">분류</div>

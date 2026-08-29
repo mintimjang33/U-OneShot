@@ -65,7 +65,7 @@ export default function TruthRoomPage() {
         {messages.length === 0 && (
           <div>
             <p className="text-lg font-black mb-1">반갑습니다, {username}님.</p>
-            <p className="text-sm text-muted mb-6">무엇이든 도플러에게 물어보십시오.</p>
+            <p className="text-sm text-muted mb-6">궁금한 건 뭐든 도플러에게 던져보세요.</p>
             <div className="grid grid-cols-2 gap-2">
               {SUGGESTED_PROMPTS.map((q) => (
                 <button
@@ -102,7 +102,7 @@ export default function TruthRoomPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send(input)}
-          placeholder="도플러에게 질문하거나 명령하세요..."
+          placeholder="채널 고민, 도플러한테 편하게 물어보세요"
           className="flex-1 border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
         />
         <button

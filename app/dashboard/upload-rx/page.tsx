@@ -95,7 +95,7 @@ export default function UploadRxPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-black mb-1">업로드 클리닉</h1>
-      <p className="text-sm text-muted mb-8">조회수를 보장하는 최후의 알고리즘 튜닝.</p>
+      <p className="text-sm text-muted mb-8">올리기 전 마지막으로 점검하는 알고리즘 체크리스트.</p>
 
       <div className="border border-border rounded-[var(--radius-card)] p-6 mb-10">
         <div className="text-xs font-bold text-muted mb-1">1. 영상 주제 또는 가제</div>

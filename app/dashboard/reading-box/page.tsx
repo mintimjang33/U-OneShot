@@ -91,7 +91,7 @@ export default function ReadingBoxPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-black mb-1">리딩박스</h1>
-      <p className="text-sm text-muted mb-6">원고를 추가하고 클릭하여 재생하세요.</p>
+      <p className="text-sm text-muted mb-6">원고를 저장해두고 필요할 때 클릭 한 번으로 들어보세요.</p>
 
       <div className="flex gap-2 mb-4">
         <input

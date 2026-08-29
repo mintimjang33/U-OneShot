@@ -87,6 +87,24 @@ const TOOLS = [
     descKo: '키워드만 알려주시면 클릭을 부르는 제목 후보와 설명, 해시태그까지 한 번에 만들어 드립니다.',
     descEn: "Give us a keyword and we'll draft click-worthy titles, a description, and hashtags in one go.",
   },
+  {
+    slug: 'lyrics-secretary',
+    ko: '가사비서 · Lyrics Secretary',
+    en: 'Lyrics Secretary',
+    titleKo: '멜로디는 있는데 가사가 안 써질 때',
+    titleEn: "Got a melody but stuck on lyrics?",
+    descKo: '주제와 장르만 고르면 가사를 써드리고, SUNO 같은 AI 작곡 서비스에 바로 넣을 수 있는 프롬프트까지 함께 드립니다.',
+    descEn: 'Pick a theme and genre and get lyrics plus a ready-to-use prompt for AI music tools like Suno.',
+  },
+  {
+    slug: 'reading-box',
+    ko: '리딩박스 · Reading Box',
+    en: 'Reading Box',
+    titleKo: '써둔 원고, 눈으로 말고 귀로 확인하세요',
+    titleEn: 'Hear your script, not just read it',
+    descKo: '대본을 저장해두고 클릭 한 번이면 음성으로 들어볼 수 있어서, 톤이 어색한지 바로 확인할 수 있습니다.',
+    descEn: 'Save a script and play it back with one click to catch anything that sounds off before you record.',
+  },
 ];
 
 const FOR_WHO = [
@@ -131,17 +149,17 @@ export default function HomePage() {
         {/* Hero */}
         <section className="max-w-6xl mx-auto px-4 pt-20 pb-16 text-center">
           <p className="text-sm font-bold text-accent mb-4">
-            <T ko="여러 개 쓰고 계시죠? 그거 하나로 합쳐드릴게요." en="Using a dozen tools? We bring them into one." />
+            <T ko="여기저기 흩어진 채널 관리, 이제 그만하셔도 됩니다." en="Stop juggling tools across every channel." />
           </p>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
-            <T ko="AI 올인원," en="All-in-one AI —" />
+            <T ko="영상 제작 AI," en="Your video AI —" />
             <br />
-            <T ko="구독 더 늘리지 마세요." en="stop piling up subscriptions." />
+            <T ko="이제 하나로 끝내세요." en="all in one workspace." />
           </h1>
           <p className="mt-6 text-lg text-muted max-w-2xl mx-auto">
             <T
-              ko="영상 생성부터 6개 플랫폼 동시 업로드까지. 흩어진 툴들, U-OneShot 하나로 정리합니다."
-              en="From video creation to publishing across 6 platforms at once — U-OneShot brings your scattered tools together."
+              ko="대본 쓰기부터 6개 SNS 동시 발행까지 — 여러 구독 대신 U-OneShot 하나로 끝냅니다."
+              en="From scripting to publishing on 6 platforms at once — replace a stack of subscriptions with U-OneShot."
             />
           </p>
           <Link
@@ -159,7 +177,7 @@ export default function HomePage() {
         {/* Tools */}
         <section className="max-w-6xl mx-auto px-4 py-20">
           <h2 className="text-2xl md:text-3xl font-black text-center">
-            <T ko="영상 제작의 모든 것, 10개의 AI 도구" en="Everything for video creation — 10 AI tools" />
+            <T ko="영상 제작 전 과정을 커버하는 11개의 AI 도구" en="11 AI tools covering the entire video workflow" />
           </h2>
           <p className="text-center text-muted mt-3 max-w-2xl mx-auto">
             <T

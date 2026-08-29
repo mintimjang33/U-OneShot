@@ -97,7 +97,7 @@ export default function ButenaPage() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-muted mb-6">무명에서 터진 데는 이유가 있습니다 — '소재+썸네일' 실시간 탐지.</p>
+      <p className="text-sm text-muted mb-6">구독자 적은 채널이 갑자기 터진 이유, 소재와 썸네일에서 찾아드립니다.</p>
 
       <div className="flex gap-2 mb-4">
         <input
