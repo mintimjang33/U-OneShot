@@ -3,7 +3,8 @@ import { getCurrentUser } from '../../lib/supabaseServerAuth';
 import { isAdminUser } from '../../lib/subscription';
 
 // 원본(8절) 실측 사이드바 순서 그대로: 한방살포→컷대리→진실의방→부테나→롱대리→숏대리→
-// 가사도우미→사방팔방→업로드처방전→썸네일이상형월드컵→비콘.
+// 가사도우미→사방팔방→업로드처방전→썸네일이상형월드컵→비콘→내 저장소(2026-08-30 재실측으로 발견한
+// 12번째 메뉴 — 원본은 "내 프로젝트", 전체 도구를 가로지르는 통합 히스토리).
 const NAV = [
   { href: '/dashboard/publish', label: '원샷배포', ready: true },
   { href: '/dashboard/cut-daeri', label: '컷비서', ready: true },
@@ -16,6 +17,7 @@ const NAV = [
   { href: '/dashboard/upload-rx', label: '업로드 클리닉', ready: true },
   { href: '/dashboard/thumbnail-arena', label: '썸네일 리믹스', ready: true },
   { href: '/dashboard/reading-box', label: '리딩박스', ready: true },
+  { href: '/dashboard/my-storage', label: '내 저장소', ready: true },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
