@@ -1,40 +1,44 @@
-// 컷비서 4단계(자막 스타일) — U-Short 워커(remotion/src/captionPresets.js)와 값을 그대로 맞춘 8종
-// 프리셋. 실제 렌더링은 저 파일이 하고, 여기 값은 프론트 미리보기 + DB 저장용 id/label만 쓴다.
-export type CaptionPreset = {
-  id: string;
-  label: string;
-  fontWeight: number;
-  fontSize: number;
-  color: string;
-  backgroundColor: string | null;
-  outlineColor: string | null;
-  outlineWidth: number;
-  pill?: boolean;
-};
+// 컷비서 4단계(자막 스타일) — 2026-08-30 재로그인 재실측(원본 진짜 편집기 화면)으로 재설계.
+// 마이그레이션 25 당시엔 U-Short 워커의 "8개 프리셋 묶음" 시스템을 재사용했는데, 실제 원본은 프리셋이
+// 아니라 줄수/크기/위치/폰트/색상/윤곽선/배경이 전부 독립적으로 조절되는 방식이었다. 이 파일은 그
+// 독립 조절 항목들의 선택지(폰트 목록, 색상 스와치)와 기본값만 관리하고, U-Short 워커
+// (remotion/src/CaptionText.jsx)가 이 값을 그대로 받아서 실제 렌더링에 반영한다.
 
-export const CAPTION_PRESETS: CaptionPreset[] = [
-  { id: 'existing-preset-bold-white-outline', label: '기본 · 흰글씨 굵은 외곽선', fontWeight: 800, fontSize: 58, color: '#ffffff', backgroundColor: null, outlineColor: '#000000', outlineWidth: 8 },
-  { id: 'existing-preset-black-bar-bold', label: '기본 · 검정박스 흰글씨', fontWeight: 700, fontSize: 52, color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.75)', outlineColor: null, outlineWidth: 0 },
-  { id: 'existing-preset-yellow-accent-bold', label: '노랑 볼드', fontWeight: 800, fontSize: 56, color: '#ffd400', backgroundColor: null, outlineColor: '#1a1a1a', outlineWidth: 6 },
-  { id: 'existing-preset-minimal-white', label: '미니멀 화이트', fontWeight: 500, fontSize: 46, color: '#ffffff', backgroundColor: null, outlineColor: null, outlineWidth: 0 },
-  { id: 'existing-preset-pastel-blue', label: '파스텔 블루', fontWeight: 700, fontSize: 52, color: '#eaf6ff', backgroundColor: 'rgba(84,164,255,0.35)', outlineColor: null, outlineWidth: 0 },
-  { id: 'existing-preset-punch-outline', label: '펀치 아웃라인', fontWeight: 900, fontSize: 60, color: '#ffffff', backgroundColor: null, outlineColor: '#ff3b6f', outlineWidth: 10 },
-  { id: 'existing-preset-pink-rounded', label: '핑크 라운드', fontWeight: 700, fontSize: 50, color: '#ffffff', backgroundColor: '#ff6fa5', outlineColor: null, outlineWidth: 0, pill: true },
-  { id: 'existing-preset-black-pill', label: '블랙 알약', fontWeight: 700, fontSize: 50, color: '#ffffff', backgroundColor: 'rgba(10,10,10,0.85)', outlineColor: null, outlineWidth: 0, pill: true },
-];
-
-export const CAPTION_POSITIONS = [
-  { value: 'top', label: '상단' },
-  { value: 'middle', label: '중앙' },
-  { value: 'bottom', label: '하단' },
+export const CAPTION_FONTS = [
+  { value: 'Pretendard, sans-serif', label: '프리텐다드' },
+  { value: '"Nanum Gothic", sans-serif', label: '나눔고딕' },
+  { value: '"Noto Sans KR", sans-serif', label: 'Noto Sans KR' },
+  { value: '"Nanum Myeongjo", serif', label: '나눔명조' },
+  { value: '"GmarketSans", sans-serif', label: 'G마켓 산스' },
+  { value: '"Cafe24Ssurround", sans-serif', label: '카페24 써라운드' },
 ] as const;
 
-export const DEFAULT_CAPTION_PRESET_ID = 'existing-preset-bold-white-outline';
+export const CAPTION_COLOR_SWATCHES = ['#ffffff', '#000000', '#ffd400', '#ff5470', '#22d3ee', '#4ade80', '#a78bfa', '#fb923c'];
 
-export type CaptionCustom = {
-  color?: string;
-  backgroundColor?: string | null;
-  outlineColor?: string | null;
-  outlineWidth?: number;
-  fontSize?: number;
+export const CAPTION_BACKGROUND_MODES = [
+  { value: 'none', label: '없음' },
+  { value: 'thin', label: '얇게' },
+  { value: 'thick', label: '두껍게' },
+] as const;
+
+export type CaptionStyle = {
+  lineCount: 1 | 2 | 3;
+  fontSize: number; // px
+  position: number; // 0~100 (%) — 세로 위치, 100이 화면 맨 아래
+  fontFamily: string;
+  color: string;
+  outlineEnabled: boolean;
+  outlineWidth: number; // px
+  background: 'none' | 'thin' | 'thick';
+};
+
+export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
+  lineCount: 2,
+  fontSize: 24,
+  position: 90,
+  fontFamily: CAPTION_FONTS[0].value,
+  color: '#ffffff',
+  outlineEnabled: true,
+  outlineWidth: 2,
+  background: 'none',
 };

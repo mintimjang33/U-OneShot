@@ -41,7 +41,7 @@ import {
 } from '../../../lib/generateImage';
 import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
 import { isAdminUser } from '../../../lib/subscription';
-import { CAPTION_PRESETS, DEFAULT_CAPTION_PRESET_ID } from '../../../lib/captionPresets';
+import { CAPTION_FONTS, DEFAULT_CAPTION_STYLE } from '../../../lib/captionPresets';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
 // userId를 생략한 도구 호출은 운영자 본인 계정(MCP_OWNER_USER_ID)을 기본으로 쓴다.
@@ -387,34 +387,37 @@ const baseHandler = createMcpHandler(
       {
         title: '컷비서 자막 스타일 지정 (4단계)',
         description:
-          '최종 렌더링에 쓸 자막 프리셋/위치/커스텀 스타일을 지정한다. U-Short 워커가 이 값을 읽어서 렌더링에 반영한다. ' +
-          `프리셋: ${CAPTION_PRESETS.map((p) => p.id).join(', ')}. 위치: top/middle/bottom.`,
+          '최종 렌더링에 쓸 자막 스타일을 지정한다(줄수/크기/위치/폰트/색상/윤곽선/배경이 전부 독립 항목 — ' +
+          '프리셋 묶음이 아니다). U-Short 워커가 이 값을 읽어서 렌더링에 반영한다. ' +
+          `폰트: ${CAPTION_FONTS.map((f) => f.value).join(', ')}. 배경: none/thin/thick. 위치는 0(맨 위)~100(맨 아래) %.`,
         inputSchema: {
           projectId: z.string(),
-          presetId: z.enum(CAPTION_PRESETS.map((p) => p.id) as [string, ...string[]]).optional(),
-          position: z.enum(['top', 'middle', 'bottom']).optional(),
-          custom: z
-            .object({
-              color: z.string().optional(),
-              backgroundColor: z.string().nullable().optional(),
-              outlineColor: z.string().nullable().optional(),
-              outlineWidth: z.number().optional(),
-              fontSize: z.number().optional(),
-            })
-            .optional()
-            .describe('지정하면 presetId 대신 이 값들로 자막 스타일을 덮어쓴다'),
+          lineCount: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+          fontSize: z.number().min(12).max(80).optional(),
+          position: z.number().min(0).max(100).optional(),
+          fontFamily: z.enum(CAPTION_FONTS.map((f) => f.value) as [string, ...string[]]).optional(),
+          color: z.string().optional(),
+          outlineEnabled: z.boolean().optional(),
+          outlineWidth: z.number().min(0).max(10).optional(),
+          background: z.enum(['none', 'thin', 'thick']).optional(),
         },
       },
-      async ({ projectId, presetId, position, custom }) => {
+      async ({ projectId, lineCount, fontSize, position, fontFamily, color, outlineEnabled, outlineWidth, background }) => {
         try {
+          const captionStyle = {
+            lineCount: lineCount ?? DEFAULT_CAPTION_STYLE.lineCount,
+            fontSize: fontSize ?? DEFAULT_CAPTION_STYLE.fontSize,
+            position: position ?? DEFAULT_CAPTION_STYLE.position,
+            fontFamily: fontFamily ?? DEFAULT_CAPTION_STYLE.fontFamily,
+            color: color ?? DEFAULT_CAPTION_STYLE.color,
+            outlineEnabled: outlineEnabled ?? DEFAULT_CAPTION_STYLE.outlineEnabled,
+            outlineWidth: outlineWidth ?? DEFAULT_CAPTION_STYLE.outlineWidth,
+            background: background ?? DEFAULT_CAPTION_STYLE.background,
+          };
           const supabase = getSupabaseServerClient();
           const { data: project, error } = await supabase
             .from('uos_cutdaeri_projects')
-            .update({
-              caption_preset_id: presetId || DEFAULT_CAPTION_PRESET_ID,
-              caption_position: position || 'bottom',
-              caption_custom: custom || null,
-            })
+            .update({ caption_style: captionStyle })
             .eq('id', projectId)
             .select()
             .single();

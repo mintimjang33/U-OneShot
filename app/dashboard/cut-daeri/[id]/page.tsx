@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, use as usePromise } from 'react';
-import { CAPTION_PRESETS, CAPTION_POSITIONS, type CaptionCustom } from '../../../../lib/captionPresets';
+import { CAPTION_FONTS, CAPTION_COLOR_SWATCHES, CAPTION_BACKGROUND_MODES, DEFAULT_CAPTION_STYLE, type CaptionStyle } from '../../../../lib/captionPresets';
 
 type Cut = { id: string; order_index: number; text: string; image_url: string | null; audio_url: string | null; status: string };
 type Project = {
@@ -14,9 +14,7 @@ type Project = {
   direction_prompt: string | null;
   status: string;
   video_url: string | null;
-  caption_preset_id: string | null;
-  caption_position: string | null;
-  caption_custom: CaptionCustom | null;
+  caption_style: CaptionStyle | null;
 };
 
 // lib/generateImage.ts의 CUTDAERI_STYLES와 순서를 맞춘 목록(UI 표시용).
@@ -74,10 +72,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 4단계(자막 스타일) — 프로젝트가 처음 로드되면 저장된 값(또는 기본값)으로 초기화한다.
-  const [captionPresetId, setCaptionPresetId] = useState(CAPTION_PRESETS[0].id);
-  const [captionPosition, setCaptionPosition] = useState<'top' | 'middle' | 'bottom'>('bottom');
-  const [useCustomCaption, setUseCustomCaption] = useState(false);
-  const [captionCustom, setCaptionCustom] = useState<CaptionCustom>({});
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
   const [savingCaptionStyle, setSavingCaptionStyle] = useState(false);
   const [captionStyleInitialized, setCaptionStyleInitialized] = useState(false);
 
@@ -94,12 +89,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
 
   useEffect(() => {
     if (project && !captionStyleInitialized) {
-      setCaptionPresetId(project.caption_preset_id || CAPTION_PRESETS[0].id);
-      setCaptionPosition((project.caption_position as 'top' | 'middle' | 'bottom') || 'bottom');
-      if (project.caption_custom) {
-        setUseCustomCaption(true);
-        setCaptionCustom(project.caption_custom);
-      }
+      if (project.caption_style) setCaptionStyle(project.caption_style);
       setCaptionStyleInitialized(true);
     }
   }, [project, captionStyleInitialized]);
@@ -184,11 +174,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     const res = await fetch(`/api/cutdaeri/${id}/caption-style`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        presetId: captionPresetId,
-        position: captionPosition,
-        custom: useCustomCaption ? captionCustom : null,
-      }),
+      body: JSON.stringify(captionStyle),
     });
     const data = await res.json();
     setSavingCaptionStyle(false);
@@ -410,108 +396,149 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
           <p className="text-xs text-muted mb-4">영상에 들어갈 자막 모양과 위치를 골라주세요.</p>
 
           <div className="border border-border rounded-[var(--radius-card)] p-6 space-y-6 mb-6">
+            <div className="w-full h-32 bg-black rounded-[var(--radius-card-sm)] relative overflow-hidden">
+              <div
+                className="absolute left-0 right-0 flex justify-center px-4"
+                style={{ top: `${captionStyle.position}%`, transform: 'translateY(-50%)' }}
+              >
+                <span
+                  style={{
+                    fontFamily: captionStyle.fontFamily,
+                    fontSize: captionStyle.fontSize,
+                    color: captionStyle.color,
+                    WebkitTextStroke: captionStyle.outlineEnabled ? `${captionStyle.outlineWidth}px #000000` : undefined,
+                    paintOrder: 'stroke fill',
+                    padding: captionStyle.background === 'none' ? 0 : captionStyle.background === 'thin' ? '2px 8px' : '8px 16px',
+                    backgroundColor: captionStyle.background === 'none' ? 'transparent' : 'rgba(0,0,0,0.75)',
+                    borderRadius: captionStyle.background === 'none' ? 0 : 6,
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: captionStyle.lineCount,
+                    overflow: 'hidden',
+                    textAlign: 'center',
+                  }}
+                >
+                  자막 미리보기 텍스트입니다
+                </span>
+              </div>
+            </div>
+
             <div>
-              <div className="text-xs font-bold text-muted mb-2">프리셋</div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CAPTION_PRESETS.map((p) => (
+              <div className="text-xs font-bold text-muted mb-2">줄수</div>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((n) => (
                   <button
-                    key={p.id}
+                    key={n}
                     type="button"
-                    onClick={() => {
-                      setCaptionPresetId(p.id);
-                      setUseCustomCaption(false);
-                    }}
-                    className={`rounded-[var(--radius-card-sm)] border p-2 flex flex-col items-center gap-1 ${
-                      !useCustomCaption && captionPresetId === p.id ? 'border-accent bg-accent-soft' : 'border-border hover:bg-white/10'
+                    onClick={() => setCaptionStyle((prev) => ({ ...prev, lineCount: n as 1 | 2 | 3 }))}
+                    className={`text-xs font-bold rounded-[var(--radius-pill)] border w-9 h-9 ${
+                      captionStyle.lineCount === n ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
                     }`}
                   >
-                    <div className="w-full h-14 bg-black rounded flex items-center justify-center overflow-hidden">
-                      <span
-                        style={{
-                          fontWeight: p.fontWeight,
-                          fontSize: 15,
-                          color: p.color,
-                          padding: p.backgroundColor ? (p.pill ? '3px 10px' : '4px 8px') : 0,
-                          borderRadius: p.backgroundColor ? (p.pill ? 999 : 6) : 0,
-                          backgroundColor: p.backgroundColor || 'transparent',
-                          WebkitTextStroke: p.outlineColor ? `${Math.max(1, p.outlineWidth / 4)}px ${p.outlineColor}` : undefined,
-                          paintOrder: 'stroke fill',
-                        }}
-                      >
-                        가나다
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-center leading-tight">{p.label}</span>
+                    {n}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div>
-              <div className="text-xs font-bold text-muted mb-2">위치</div>
-              <div className="flex gap-2">
-                {CAPTION_POSITIONS.map((pos) => (
-                  <button
-                    key={pos.value}
-                    type="button"
-                    onClick={() => setCaptionPosition(pos.value)}
-                    className={`text-xs font-bold rounded-[var(--radius-pill)] border px-3 py-1.5 ${
-                      captionPosition === pos.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
-                    }`}
-                  >
-                    {pos.label}
-                  </button>
+            <label className="block text-xs">
+              <span className="font-bold text-muted">크기 ({captionStyle.fontSize}px)</span>
+              <input
+                type="range"
+                min={12}
+                max={80}
+                value={captionStyle.fontSize}
+                onChange={(e) => setCaptionStyle((prev) => ({ ...prev, fontSize: Number(e.target.value) }))}
+                className="w-full mt-1"
+              />
+            </label>
+
+            <label className="block text-xs">
+              <span className="font-bold text-muted">위치 ({captionStyle.position}%)</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={captionStyle.position}
+                onChange={(e) => setCaptionStyle((prev) => ({ ...prev, position: Number(e.target.value) }))}
+                className="w-full mt-1"
+              />
+            </label>
+
+            <label className="block text-xs">
+              <span className="font-bold text-muted block mb-1">폰트</span>
+              <select
+                value={captionStyle.fontFamily}
+                onChange={(e) => setCaptionStyle((prev) => ({ ...prev, fontFamily: e.target.value }))}
+                className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
+              >
+                {CAPTION_FONTS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
                 ))}
+              </select>
+            </label>
+
+            <div>
+              <div className="text-xs font-bold text-muted mb-2">색상</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {CAPTION_COLOR_SWATCHES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCaptionStyle((prev) => ({ ...prev, color: c }))}
+                    style={{ backgroundColor: c }}
+                    className={`w-7 h-7 rounded-full border-2 ${captionStyle.color === c ? 'border-accent' : 'border-border'}`}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={captionStyle.color}
+                  onChange={(e) => setCaptionStyle((prev) => ({ ...prev, color: e.target.value }))}
+                  className="w-7 h-7 rounded-full border border-border overflow-hidden p-0"
+                  title="커스텀 색상"
+                />
               </div>
             </div>
 
             <div>
               <label className="flex items-center gap-2 text-xs font-bold text-muted mb-2">
-                <input type="checkbox" checked={useCustomCaption} onChange={(e) => setUseCustomCaption(e.target.checked)} />
-                커스텀 스타일 직접 지정
+                <input
+                  type="checkbox"
+                  checked={captionStyle.outlineEnabled}
+                  onChange={(e) => setCaptionStyle((prev) => ({ ...prev, outlineEnabled: e.target.checked }))}
+                />
+                윤곽선
               </label>
-              {useCustomCaption && (
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="text-xs">
-                    글자색
-                    <input
-                      type="color"
-                      value={captionCustom.color || '#ffffff'}
-                      onChange={(e) => setCaptionCustom((prev) => ({ ...prev, color: e.target.value }))}
-                      className="w-full h-8 mt-1"
-                    />
-                  </label>
-                  <label className="text-xs">
-                    배경색 (투명 없앨 때만)
-                    <input
-                      type="color"
-                      value={captionCustom.backgroundColor || '#000000'}
-                      onChange={(e) => setCaptionCustom((prev) => ({ ...prev, backgroundColor: e.target.value }))}
-                      className="w-full h-8 mt-1"
-                    />
-                  </label>
-                  <label className="text-xs">
-                    외곽선색
-                    <input
-                      type="color"
-                      value={captionCustom.outlineColor || '#000000'}
-                      onChange={(e) => setCaptionCustom((prev) => ({ ...prev, outlineColor: e.target.value }))}
-                      className="w-full h-8 mt-1"
-                    />
-                  </label>
-                  <label className="text-xs">
-                    글자 크기 ({captionCustom.fontSize || 58}px)
-                    <input
-                      type="range"
-                      min={30}
-                      max={80}
-                      value={captionCustom.fontSize || 58}
-                      onChange={(e) => setCaptionCustom((prev) => ({ ...prev, fontSize: Number(e.target.value) }))}
-                      className="w-full mt-1"
-                    />
-                  </label>
-                </div>
+              {captionStyle.outlineEnabled && (
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={captionStyle.outlineWidth}
+                  onChange={(e) => setCaptionStyle((prev) => ({ ...prev, outlineWidth: Number(e.target.value) }))}
+                  className="w-full"
+                />
               )}
+            </div>
+
+            <div>
+              <div className="text-xs font-bold text-muted mb-2">배경</div>
+              <div className="flex gap-2">
+                {CAPTION_BACKGROUND_MODES.map((b) => (
+                  <button
+                    key={b.value}
+                    type="button"
+                    onClick={() => setCaptionStyle((prev) => ({ ...prev, background: b.value }))}
+                    className={`text-xs font-bold rounded-[var(--radius-pill)] border px-3 py-1.5 ${
+                      captionStyle.background === b.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
+                    }`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button
