@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
-import { SABANGPALBANG_ANGLES } from '../../../lib/generateImage';
+import { SABANGPALBANG_ANGLES, generateSabangpalbangVideo } from '../../../lib/generateImage';
+import { checkSabangpalbangVideoQuota } from '../../../lib/subscription';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -28,17 +29,66 @@ export async function POST(request: Request) {
   const ASPECT_RATIOS = ['9:16', '16:9', '1:1', '2:3', '3:2'];
   const requestedAspectRatio = String(formData?.get('aspectRatio') || '9:16');
   const aspectRatio: string = ASPECT_RATIOS.includes(requestedAspectRatio) ? requestedAspectRatio : '9:16';
+  const supabase = getSupabaseServerClient();
+
+  // "동영상" 입력모드는 8개 카메라 앵글 개념이 없다(원본 실측: 소스 이미지+화면비율+추가 프롬프트만으로
+  // 이미지→동영상 변환) — 앵글 선택도 요구하지 않고, 컷비서처럼 프로젝트만 만든 뒤 별도 엔드포인트
+  // (POST /api/sabangpalbang/[id]/generate-video)에서 실제 생성을 트리거한다.
+  if (mode === 'video') {
+    const gateError = await checkSabangpalbangVideoQuota(user.id);
+    if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
+
+    const file = formData?.get('image');
+    if (!(file instanceof File)) return NextResponse.json({ error: '이미지 파일을 첨부해주세요.' }, { status: 400 });
+    const extraPrompt = String(formData?.get('extraPrompt') || '').trim() || null;
+
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('sabangpalbang-assets')
+        .upload(path, await file.arrayBuffer(), { contentType: file.type });
+      if (uploadError) throw new Error(uploadError.message);
+      const { data: pub } = supabase.storage.from('sabangpalbang-assets').getPublicUrl(path);
+
+      const { data: project, error: projectError } = await supabase
+        .from('uos_sabangpalbang_projects')
+        .insert({
+          user_id: user.id,
+          source_image_url: pub.publicUrl,
+          input_mode: 'video',
+          extra_prompt: extraPrompt,
+          aspect_ratio: aspectRatio,
+          status: 'generating',
+        })
+        .select()
+        .single();
+      if (projectError || !project) throw new Error(projectError?.message || '프로젝트 생성 실패');
+
+      try {
+        const { videoUrl } = await generateSabangpalbangVideo(pub.publicUrl, aspectRatio, extraPrompt || undefined);
+        const { data: done } = await supabase
+          .from('uos_sabangpalbang_projects')
+          .update({ output_video_url: videoUrl, status: 'done' })
+          .eq('id', project.id)
+          .select()
+          .single();
+        return NextResponse.json({ project: done || project });
+      } catch (genErr) {
+        await supabase.from('uos_sabangpalbang_projects').update({ status: 'failed' }).eq('id', project.id);
+        throw genErr;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const selectedIndexes = String(formData?.get('angleIndexes') || '')
     .split(',')
     .map((s) => Number(s))
     .filter((n) => !Number.isNaN(n) && n >= 0 && n < SABANGPALBANG_ANGLES.length);
   if (selectedIndexes.length === 0) return NextResponse.json({ error: '앵글을 1개 이상 선택해주세요.' }, { status: 400 });
-
-  if (mode === 'video') {
-    return NextResponse.json({ error: '동영상 입력모드는 아직 지원하지 않습니다. 이미지 또는 프롬프트를 이용해주세요.' }, { status: 400 });
-  }
-
-  const supabase = getSupabaseServerClient();
 
   try {
     let sourceImageUrl: string | null = null;

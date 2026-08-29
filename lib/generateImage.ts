@@ -124,6 +124,54 @@ export async function generateAngleImage(sourceImageUrl: string, anglePrompt: st
   return { imageUrl };
 }
 
+// 요모조모 "동영상" 입력모드 — 2026-08-30 재실측으로 뒤늦게 발견: 입력모드 3탭(이미지/프롬프트/동영상) 중
+// "동영상" 탭은 앵글 선택이 없고, 소스 이미지 1장 + 화면비율 + 추가 프롬프트만으로 "이미지→동영상"
+// 변환을 한다(카메라 앵글 개념 자체가 없음 — 8개 앵글 체크박스는 이미지/프롬프트 탭 전용).
+// fal-ai/kling-video는 큐 기반(submit 후 폴링)이라 Vercel 함수 타임아웃 안에서 끝나도록 최대 55초까지
+// 2초 간격으로 폴링한다. duration은 원본 요금제표의 "6s/10s" 표기에 맞춰 5초(kling 최소 단위)/10초 중 선택.
+const KLING_VIDEO_MODEL = 'fal-ai/kling-video/v1.6/standard/image-to-video';
+
+export async function generateSabangpalbangVideo(
+  sourceImageUrl: string,
+  aspectRatio?: string,
+  extraPrompt?: string,
+  durationSeconds: '5' | '10' = '5'
+): Promise<{ videoUrl: string }> {
+  const apiKey = await getRemoteConfig('FAL_KEY');
+  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  const prompt = extraPrompt?.trim()
+    ? `Animate this image into a short cinematic video: ${extraPrompt}`
+    : 'Animate this image into a short cinematic video with subtle, natural camera movement.';
+
+  const submitRes = await fetch(`https://queue.fal.run/${KLING_VIDEO_MODEL}`, {
+    method: 'POST',
+    headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, image_url: sourceImageUrl, duration: durationSeconds, aspect_ratio: normalizeAspectRatio(aspectRatio) }),
+  });
+  const submitJson = await submitRes.json();
+  if (!submitRes.ok || !submitJson.request_id) throw new Error(submitJson.detail || JSON.stringify(submitJson));
+
+  const statusUrl = `https://queue.fal.run/${KLING_VIDEO_MODEL}/requests/${submitJson.request_id}/status`;
+  const resultUrl = `https://queue.fal.run/${KLING_VIDEO_MODEL}/requests/${submitJson.request_id}`;
+  const deadline = Date.now() + 55_000;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const statusRes = await fetch(statusUrl, { headers: { Authorization: `Key ${apiKey}` } });
+    const statusJson = await statusRes.json();
+    if (statusJson.status === 'COMPLETED') {
+      const resultRes = await fetch(resultUrl, { headers: { Authorization: `Key ${apiKey}` } });
+      const resultJson = await resultRes.json();
+      const videoUrl = resultJson.video?.url;
+      if (!videoUrl) throw new Error(JSON.stringify(resultJson));
+      return { videoUrl };
+    }
+    if (statusJson.status === 'ERROR') throw new Error(statusJson.error || '동영상 생성에 실패했습니다.');
+  }
+  throw new Error('동영상 생성이 시간 내에 끝나지 않았습니다. 잠시 후 다시 시도해주세요.');
+}
+
 // 요모조모 "프롬프트" 입력모드: 원본 이미지 없이 텍스트 설명만으로 특정 앵글의 이미지를 새로 그린다
 // (image-to-image가 아니라 text-to-image — fal-ai/nano-banana, aspect_ratio 명시 지원).
 export async function generateAngleImageFromPrompt(subjectPrompt: string, anglePrompt: string, aspectRatio?: string): Promise<{ imageUrl: string }> {

@@ -12,11 +12,13 @@ export default function SabangpalbangPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [mode, setMode] = useState<'image' | 'prompt' | 'video'>('image');
   const [prompt, setPrompt] = useState('');
+  const [extraPrompt, setExtraPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [selectedAngles, setSelectedAngles] = useState<Set<number>>(new Set(ANGLES.map((_, i) => i)));
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
 
   function load() {
     fetch('/api/sabangpalbang')
@@ -39,7 +41,33 @@ export default function SabangpalbangPage() {
     setSelectedAngles((prev) => (prev.size === ANGLES.length ? new Set() : new Set(ANGLES.map((_, i) => i))));
   }
 
+  async function handleSubmitVideo() {
+    const file = videoFileRef.current?.files?.[0];
+    if (!file) {
+      setError('이미지 파일을 첨부해주세요.');
+      return;
+    }
+    setUploading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append('mode', 'video');
+    formData.append('aspectRatio', aspectRatio);
+    formData.append('image', file);
+    if (extraPrompt.trim()) formData.append('extraPrompt', extraPrompt);
+
+    const res = await fetch('/api/sabangpalbang', { method: 'POST', body: formData });
+    const data = await res.json();
+    setUploading(false);
+    if (!res.ok) {
+      setError(data.error);
+      return;
+    }
+    window.location.href = `/dashboard/sabangpalbang/${data.project.id}`;
+  }
+
   async function handleSubmit() {
+    if (mode === 'video') return handleSubmitVideo();
     if (selectedAngles.size === 0) {
       setError('앵글을 1개 이상 선택해주세요.');
       return;
@@ -95,7 +123,10 @@ export default function SabangpalbangPage() {
           ))}
         </div>
 
-        {mode === 'video' && <p className="text-xs text-muted mb-4">동영상 입력모드는 아직 준비 중이에요. 이미지나 프롬프트를 이용해주세요.</p>}
+        {mode === 'video' && (
+          <p className="text-xs text-muted mb-2">이미지 → 동영상: 소스 이미지를 짧은 동영상으로 변환합니다.</p>
+        )}
+        {mode === 'video' && <input ref={videoFileRef} type="file" accept="image/*" className="text-sm mb-4 block" />}
 
         {mode === 'image' && <input ref={fileRef} type="file" accept="image/*" className="text-sm mb-4 block" />}
 
@@ -120,29 +151,43 @@ export default function SabangpalbangPage() {
           </select>
         </div>
 
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-muted">카메라 앵글</span>
-          <button type="button" onClick={toggleAll} className="text-xs font-bold text-accent">
-            전체 선택
-          </button>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-          {ANGLES.map((label, i) => (
-            <label key={label} className="flex items-center gap-1.5 text-xs border border-border rounded-[var(--radius-card-sm)] px-2 py-1.5">
-              <input type="checkbox" checked={selectedAngles.has(i)} onChange={() => toggleAngle(i)} />
-              {label}
-            </label>
-          ))}
-        </div>
+        {mode === 'video' && (
+          <textarea
+            value={extraPrompt}
+            onChange={(e) => setExtraPrompt(e.target.value)}
+            placeholder="추가 디테일이나 스타일 노트를 입력하세요 (선택)"
+            rows={3}
+            className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-4"
+          />
+        )}
+
+        {mode !== 'video' && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-muted">카메라 앵글</span>
+              <button type="button" onClick={toggleAll} className="text-xs font-bold text-accent">
+                전체 선택
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              {ANGLES.map((label, i) => (
+                <label key={label} className="flex items-center gap-1.5 text-xs border border-border rounded-[var(--radius-card-sm)] px-2 py-1.5">
+                  <input type="checkbox" checked={selectedAngles.has(i)} onChange={() => toggleAngle(i)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
 
         {error && <div className="text-xs text-red-500 mb-3">{error}</div>}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={uploading || mode === 'video'}
+          disabled={uploading}
           className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-6 py-2.5 text-sm disabled:opacity-40"
         >
-          {uploading ? '시작하는 중...' : '시작하기'}
+          {uploading ? '시작하는 중...' : mode === 'video' ? '동영상 생성하기' : '시작하기'}
         </button>
       </div>
 
