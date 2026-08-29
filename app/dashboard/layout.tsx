@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { getCurrentUser } from '../../lib/supabaseServerAuth';
+import { isAdminUser } from '../../lib/subscription';
 
 // 원본(8절) 실측 사이드바 순서 그대로: 한방살포→컷대리→진실의방→부테나→롱대리→숏대리→
 // 가사도우미→사방팔방→업로드처방전→썸네일이상형월드컵→비콘.
@@ -16,7 +18,10 @@ const NAV = [
   { href: '/dashboard/reading-box', label: '리딩박스', ready: true },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
+  const showAdmin = !!user && isAdminUser(user.id);
+
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       <aside className="w-56 border-r border-border p-4 hidden md:block">
@@ -37,6 +42,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {!item.ready && <span className="text-[10px] font-bold">준비중</span>}
             </Link>
           ))}
+          {showAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center justify-between text-sm rounded-[var(--radius-card-sm)] px-3 py-2 hover:bg-active-bg font-medium text-accent mt-3 border-t border-border pt-4"
+            >
+              관리자
+            </Link>
+          )}
         </nav>
       </aside>
       <main className="flex-1 p-6">{children}</main>

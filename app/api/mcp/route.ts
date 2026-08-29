@@ -38,6 +38,7 @@ import {
   THUMBNAIL_COPY_STYLES,
 } from '../../../lib/generateImage';
 import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
+import { isAdminUser } from '../../../lib/subscription';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
 // userId를 생략한 도구 호출은 운영자 본인 계정(MCP_OWNER_USER_ID)을 기본으로 쓴다.
@@ -179,6 +180,44 @@ const baseHandler = createMcpHandler(
     );
 
     // ── 회원 요금제(권한) 관리 ────────────────────────────────────────
+    // /admin 페이지(app/admin/page.tsx)와 동일한 데이터를 MCP로도 볼 수 있게 하는 도구.
+    // Supabase Auth 회원 목록 + uos_subscriptions를 조인해서 이메일/가입일/현재 tier/만료일을 보여준다.
+    server.registerTool(
+      'list_users',
+      {
+        title: '전체 회원 + 요금제 목록',
+        description: '가입된 전체 회원(Supabase Auth)과 각자의 현재 요금제(tier)/만료일을 함께 조회한다. 운영자 계정은 tier가 항상 pro로 표시된다.',
+        inputSchema: {},
+      },
+      async () => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: authList, error: authError } = await supabase.auth.admin.listUsers({ perPage: 200 });
+          if (authError) throw new Error(authError.message);
+
+          const { data: subs, error: subsError } = await supabase.from('uos_subscriptions').select('*');
+          if (subsError) throw new Error(subsError.message);
+
+          const subsByUserId = new Map((subs || []).map((s) => [s.user_id, s]));
+          const users = authList.users.map((u) => {
+            const sub = subsByUserId.get(u.id);
+            const expired = sub?.expires_at && new Date(sub.expires_at) <= new Date();
+            return {
+              id: u.id,
+              email: u.email,
+              createdAt: u.created_at,
+              isOwner: isAdminUser(u.id),
+              tier: isAdminUser(u.id) ? 'pro' : expired ? 'free' : sub?.tier || 'free',
+              expiresAt: sub?.expires_at || null,
+            };
+          });
+          return textResult(JSON.stringify(users, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
     // uos_subscriptions에 upsert_row로도 직접 가능하지만, "N일 부여" 식으로 쓰기 편하게 만든 전용 도구.
     // 참고: MCP_OWNER_USER_ID 계정(운영자 본인)은 이 테이블과 무관하게 항상 Pro가 자동으로 적용된다
     // (lib/subscription.ts의 isAdminUser). 일반 회원은 /purchase에서 셀프로도 플랜을 켤 수 있음(테스트
