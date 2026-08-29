@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { generateUploadRx, UPLOADRX_STYLES } from '../../../lib/generateScript';
+import { checkFeatureGate } from '../../../lib/subscription';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
   const script: string | undefined = body?.script || undefined;
   const benchmarkUrl: string | undefined = body?.benchmarkUrl || undefined;
   if (!topic?.trim()) return NextResponse.json({ error: '영상 주제 또는 가제를 입력해주세요.' }, { status: 400 });
+
+  const gateError = await checkFeatureGate(user.id, 'uploadClinic', '업로드 클리닉');
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const supabase = getSupabaseServerClient();
 

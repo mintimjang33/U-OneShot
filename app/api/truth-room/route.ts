@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
+import { checkFeatureGate } from '../../../lib/subscription';
 
 // 원본(8-2절) 실측: 페르소나 이름이 "도플러"고, 톤은 일반적인 창업 조언이 아니라 유튜브 조회수/구독자
 // 성장에 특화된 대담하고 직설적인 그로스 전략 어드바이저에 가깝다.
@@ -35,6 +36,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+
+  const gateError = await checkFeatureGate(user.id, 'truthRoom', '직언의방');
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const body = await request.json().catch(() => null);
   const content: string = body?.content;

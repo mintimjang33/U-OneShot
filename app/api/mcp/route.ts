@@ -178,6 +178,39 @@ const baseHandler = createMcpHandler(
       }
     );
 
+    // ── 회원 요금제(권한) 관리 ────────────────────────────────────────
+    // uos_subscriptions에 upsert_row로도 직접 가능하지만, "N일 부여" 식으로 쓰기 편하게 만든 전용 도구.
+    // 참고: MCP_OWNER_USER_ID 계정(운영자 본인)은 이 테이블과 무관하게 항상 Pro가 자동으로 적용된다
+    // (lib/subscription.ts의 isAdminUser). 일반 회원은 /purchase에서 셀프로도 플랜을 켤 수 있음(테스트
+    // 모드, 실제 결제 없이 30일 부여) — 이 도구는 그와 별개로 운영자가 특정 회원의 플랜을 직접 조정할 때 쓴다.
+    server.registerTool(
+      'set_user_tier',
+      {
+        title: '회원 요금제(권한) 설정',
+        description: '지정한 회원(userId)의 요금제(tier)를 설정한다. durationDays를 주면 오늘부터 그만큼 뒤에 만료되고, 생략하면 만료 없이(free는 예외) 무기한 적용된다.',
+        inputSchema: {
+          userId: z.string().describe('Supabase auth user id'),
+          tier: z.enum(['free', 'lite', 'standard', 'pro']),
+          durationDays: z.number().int().positive().optional(),
+        },
+      },
+      async ({ userId, tier, durationDays }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const expiresAt = durationDays ? new Date(Date.now() + durationDays * 86400000).toISOString() : null;
+          const { data, error } = await supabase
+            .from('uos_subscriptions')
+            .upsert({ user_id: userId, tier, expires_at: expiresAt }, { onConflict: 'user_id' })
+            .select()
+            .single();
+          if (error || !data) throw new Error(error?.message || '설정 실패');
+          return textResult(JSON.stringify(data, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
     server.registerTool(
       'run_sql',
       {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
+import { checkFeatureGate } from '../../../lib/subscription';
 
 // 떡상레이더 "보관함" — 검색 결과 중 사용자가 저장해둔 것.
 export async function GET() {
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
   if (!videoUrl || !title || !channelName || viewCount === undefined) {
     return NextResponse.json({ error: '저장할 항목 정보가 부족합니다.' }, { status: 400 });
   }
+
+  const gateError = await checkFeatureGate(user.id, 'butenaAnalysis', '떡상레이더 분석(보관함 저장)');
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const supabase = getSupabaseServerClient();
   const { data: item, error } = await supabase

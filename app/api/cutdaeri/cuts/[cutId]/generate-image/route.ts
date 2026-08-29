@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../../../../lib/supabase';
 import { getCurrentUser } from '../../../../../../lib/supabaseServerAuth';
 import { generateCutImage } from '../../../../../../lib/generateImage';
+import { checkCutdaeriImageQuota } from '../../../../../../lib/subscription';
 
 export async function POST(request: Request, { params }: { params: Promise<{ cutId: string }> }) {
   const user = await getCurrentUser();
@@ -16,6 +17,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
     .maybeSingle();
   if (!cut || cut.uos_cutdaeri_projects.user_id !== user.id) {
     return NextResponse.json({ error: '컷을 찾을 수 없습니다.' }, { status: 404 });
+  }
+
+  // 이미 이미지가 있는 컷을 다시 생성하는 경우는 한도 체크에서 건너뛴다(재생성까지 막으면 너무 가혹함).
+  if (!cut.image_url) {
+    const quotaError = await checkCutdaeriImageQuota(user.id);
+    if (quotaError) return NextResponse.json({ error: quotaError }, { status: 403 });
   }
 
   await supabase.from('uos_cutdaeri_cuts').update({ status: 'generating' }).eq('id', cutId);

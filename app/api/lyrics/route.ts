@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { generateLyrics } from '../../../lib/generateScript';
+import { checkFeatureGate } from '../../../lib/subscription';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
   const vocalType: string = body?.vocalType || '여성';
   const language: string = body?.language || '한국어';
   if (!theme?.trim() || !genre?.trim()) return NextResponse.json({ error: '주제와 장르를 입력해주세요.' }, { status: 400 });
+
+  const gateError = await checkFeatureGate(user.id, 'lyrics', '가사비서');
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const supabase = getSupabaseServerClient();
 

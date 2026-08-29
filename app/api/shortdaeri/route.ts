@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { generateShortDaeriScripts } from '../../../lib/generateScript';
+import { checkFeatureGate } from '../../../lib/subscription';
 
 // 숏폼비서는 독립 도구다(원본 8-5절) — 롱폼비서 프로젝트 없이 아무 긴 글이나 바로 붙여넣어 쓴다.
 export async function GET() {
@@ -22,6 +23,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+
+  const gateError = await checkFeatureGate(user.id, 'longformShortform', '숏폼비서');
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const body = await request.json().catch(() => null);
   const sourceText: string = body?.sourceText;
