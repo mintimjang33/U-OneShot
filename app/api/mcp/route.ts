@@ -512,20 +512,21 @@ const baseHandler = createMcpHandler(
       'create_thumbnail_variation',
       {
         title: '썸네일 리믹스 — 변형 생성',
-        description: '이미 호스팅된 원본 썸네일 이미지 URL로 2~4개의 변형 이미지를 즉시 생성해 uos_thumbnailremix_projects에 저장한다.',
+        description: '이미 호스팅된 원본 썸네일 이미지 URL로 2~4개의 변형 이미지를 즉시 생성해 uos_thumbnailremix_projects에 저장한다. subjectImageUrl을 같이 주면 원본 썸네일 속 인물을 그 이미지의 인물로 교체한다(fal-ai/nano-banana/edit 멀티이미지 편집).',
         inputSchema: {
           sourceImageUrl: z.string().describe('공개 접근 가능한 원본 썸네일 이미지 URL'),
+          subjectImageUrl: z.string().optional().describe('인물 교체용 피사체 이미지 URL(선택) — 있으면 원본 썸네일 속 인물을 이 이미지의 인물로 교체한다'),
           promptText: z.string().optional(),
           variantCount: z.number().int().min(2).max(4).optional(),
           userId: z.string().optional(),
         },
       },
-      async ({ sourceImageUrl, promptText, variantCount = 2, userId }) => {
+      async ({ sourceImageUrl, subjectImageUrl, promptText, variantCount = 2, userId }) => {
         try {
           const uid = resolveUserId(userId);
           const supabase = getSupabaseServerClient();
           const variants = await Promise.all(
-            Array.from({ length: variantCount }, () => generateThumbnailVariant(sourceImageUrl, promptText))
+            Array.from({ length: variantCount }, () => generateThumbnailVariant(sourceImageUrl, promptText, subjectImageUrl))
           );
           const { data: project, error } = await supabase
             .from('uos_thumbnailremix_projects')
@@ -533,6 +534,7 @@ const baseHandler = createMcpHandler(
               user_id: uid,
               mode: 'variation',
               source_image_url: sourceImageUrl,
+              subject_image_url: subjectImageUrl || null,
               prompt_text: promptText || null,
               variant_count: variantCount,
               image_urls: variants.map((v) => v.imageUrl),

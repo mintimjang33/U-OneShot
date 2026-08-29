@@ -83,7 +83,9 @@ export async function POST(request: Request) {
       .single();
     if (projectError || !project) throw new Error(projectError?.message || '프로젝트 생성 실패');
 
-    const variants = await Promise.all(Array.from({ length: variantCount }, () => generateThumbnailVariant(sourceImageUrl, promptText || undefined)));
+    const variants = await Promise.all(
+      Array.from({ length: variantCount }, () => generateThumbnailVariant(sourceImageUrl, promptText || undefined, subjectImageUrl || undefined))
+    );
     const imageUrls = variants.map((v) => v.imageUrl);
 
     const { data: updated, error: updateError } = await supabase

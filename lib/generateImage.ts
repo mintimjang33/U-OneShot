@@ -81,12 +81,33 @@ export async function generateAngleImageFromPrompt(subjectPrompt: string, angleP
 }
 
 // 썸네일 리믹스 "썸네일 변형" 모드: 원본 썸네일 1장 → AI가 변형 이미지를 생성한다(A/B 테스트용).
-// ⚠️ "피사체(선택)" 인물 교체 업로드는 현재 URL만 저장하고 실제 생성에는 반영하지 않는다 —
-// fal-ai/flux-pro/kontext는 이미지 1장 입력만 지원해서 원본+피사체 두 장을 동시에 넣을 방법을
-// 아직 검증 못 함(HongHub에 남겨둠, 다음 재작업 때 다중 이미지 지원 모델로 교체 검토).
-export async function generateThumbnailVariant(sourceImageUrl: string, promptText?: string): Promise<{ imageUrl: string }> {
+// "피사체(선택)" 이미지가 같이 오면 fal-ai/nano-banana/edit(Gemini 2.5 Flash Image, image_urls 배열로
+// 여러 장을 한 번에 받는 멀티이미지 편집 모델)로 전환해서 원본 썸네일 속 인물을 피사체 이미지의 인물로
+// 실제로 교체한다. 기존 flux-pro/kontext는 이미지 1장만 받아서 인물 교체가 불가능했던 부분(FAL_KEY는
+// 그대로 재사용, 새 키 발급 불필요).
+export async function generateThumbnailVariant(
+  sourceImageUrl: string,
+  promptText?: string,
+  subjectImageUrl?: string
+): Promise<{ imageUrl: string }> {
   const apiKey = await getRemoteConfig('FAL_KEY');
   if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  if (subjectImageUrl) {
+    const prompt = promptText?.trim()
+      ? `Replace the main person in the first image with the person from the second image, keeping the first image's background, composition, text and layout. Then apply this direction: ${promptText}. Keep it eye-catching and clickable as a YouTube thumbnail.`
+      : "Replace the main person in the first image with the person from the second image, keeping the first image's background, composition, text and layout unchanged. Keep it eye-catching and clickable as a YouTube thumbnail.";
+
+    const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
+      method: 'POST',
+      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, image_urls: [sourceImageUrl, subjectImageUrl], num_images: 1, output_format: 'png' }),
+    });
+    const json = await res.json();
+    const imageUrl = json.images?.[0]?.url;
+    if (!res.ok || !imageUrl) throw new Error(json.detail || JSON.stringify(json));
+    return { imageUrl };
+  }
 
   const prompt = promptText?.trim()
     ? `Create a variation of this thumbnail for A/B testing: ${promptText}. Keep it eye-catching and clickable.`
