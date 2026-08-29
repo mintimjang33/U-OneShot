@@ -24,7 +24,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
   const imageUrl = supabase.storage.from('cutdaeri-assets').getPublicUrl(path).data.publicUrl;
 
-  const { error } = await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, status: 'done' }).eq('id', cutId);
+  // 이미지가 바뀌면 그 이미지를 소스로 만들었던 기존 동영상 클립은 더 이상 안 맞으므로 같이 지운다.
+  const { error } = await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, video_url: null, status: 'done' }).eq('id', cutId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ imageUrl });

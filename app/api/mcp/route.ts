@@ -30,6 +30,7 @@ import {
 } from '../../../lib/generateScript';
 import {
   generateCutImage,
+  generateCutVideo,
   CUTDAERI_STYLES,
   generateAngleImage,
   generateAngleImageFromPrompt,
@@ -476,6 +477,32 @@ const baseHandler = createMcpHandler(
           const { audioUrl } = await generateCutVoice(cutId, cut.copy_text || cut.text);
           await supabase.from('uos_cutdaeri_cuts').update({ audio_url: audioUrl }).eq('id', cutId);
           return textResult(audioUrl);
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'generate_cutdaeri_cut_video',
+      {
+        title: '컷비서 컷 동영상 생성',
+        description: '지정한 컷(uos_cutdaeri_cuts.id)의 정지 이미지를 짧은 AI 영상클립으로 바꾼다. 그 컷에 image_url이 먼저 있어야 한다.',
+        inputSchema: { cutId: z.string(), durationSeconds: z.enum(['5', '10']).optional() },
+      },
+      async ({ cutId, durationSeconds = '5' }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: cut } = await supabase
+            .from('uos_cutdaeri_cuts')
+            .select('*, uos_cutdaeri_projects!inner(aspect_ratio)')
+            .eq('id', cutId)
+            .maybeSingle();
+          if (!cut) throw new Error('컷을 찾을 수 없습니다.');
+          if (!cut.image_url) throw new Error('먼저 이 컷의 이미지를 생성하거나 업로드해야 합니다.');
+          const { videoUrl } = await generateCutVideo(cut.image_url, cut.uos_cutdaeri_projects.aspect_ratio, durationSeconds);
+          await supabase.from('uos_cutdaeri_cuts').update({ video_url: videoUrl, status: 'done' }).eq('id', cutId);
+          return textResult(videoUrl);
         } catch (err) {
           return errorResult(err);
         }
@@ -956,7 +983,7 @@ const baseHandler = createMcpHandler(
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
       '11개 기능(9번째 떡상레이더는 검색형이라 전용 생성 도구 없음) 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
-      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/set_cutdaeri_caption_style/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
+      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/generate_cutdaeri_cut_video/set_cutdaeri_caption_style/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
       '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbnail_variation/' +
       'create_thumbnail_copywriting, 가사비서: generate_lyrics, 리딩박스: save_readingbox_script/play_readingbox_script, ' +

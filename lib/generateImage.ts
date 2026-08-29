@@ -131,19 +131,14 @@ export async function generateAngleImage(sourceImageUrl: string, anglePrompt: st
 // 2초 간격으로 폴링한다. duration은 원본 요금제표의 "6s/10s" 표기에 맞춰 5초(kling 최소 단위)/10초 중 선택.
 const KLING_VIDEO_MODEL = 'fal-ai/kling-video/v1.6/standard/image-to-video';
 
-export async function generateSabangpalbangVideo(
+// kling-video 큐 submit + 폴링 공용 로직 — 사방팔방 동영상모드/컷비서 컷별 동영상이 동일 모델을 쓴다.
+async function runKlingImageToVideo(
+  apiKey: string,
   sourceImageUrl: string,
+  prompt: string,
   aspectRatio?: string,
-  extraPrompt?: string,
   durationSeconds: '5' | '10' = '5'
 ): Promise<{ videoUrl: string }> {
-  const apiKey = await getRemoteConfig('FAL_KEY');
-  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
-
-  const prompt = extraPrompt?.trim()
-    ? `Animate this image into a short cinematic video: ${extraPrompt}`
-    : 'Animate this image into a short cinematic video with subtle, natural camera movement.';
-
   const submitRes = await fetch(`https://queue.fal.run/${KLING_VIDEO_MODEL}`, {
     method: 'POST',
     headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
@@ -170,6 +165,37 @@ export async function generateSabangpalbangVideo(
     if (statusJson.status === 'ERROR') throw new Error(statusJson.error || '동영상 생성에 실패했습니다.');
   }
   throw new Error('동영상 생성이 시간 내에 끝나지 않았습니다. 잠시 후 다시 시도해주세요.');
+}
+
+export async function generateSabangpalbangVideo(
+  sourceImageUrl: string,
+  aspectRatio?: string,
+  extraPrompt?: string,
+  durationSeconds: '5' | '10' = '5'
+): Promise<{ videoUrl: string }> {
+  const apiKey = await getRemoteConfig('FAL_KEY');
+  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  const prompt = extraPrompt?.trim()
+    ? `Animate this image into a short cinematic video: ${extraPrompt}`
+    : 'Animate this image into a short cinematic video with subtle, natural camera movement.';
+
+  return runKlingImageToVideo(apiKey, sourceImageUrl, prompt, aspectRatio, durationSeconds);
+}
+
+// 컷비서 4단계 이전 "생성" 단계에서 컷마다 이미지 대신 짧은 AI 영상클립을 쓸 수 있게 하는 옵션
+// (원본 재실측: 컷마다 TTS/이미지/동영상/업로드 4버튼). 이미 생성된 컷 이미지를 소스로 그 컷에
+// 어울리는 자연스러운 카메라 움직임만 추가하는 방향으로 애니메이션한다.
+export async function generateCutVideo(
+  sourceImageUrl: string,
+  aspectRatio?: string,
+  durationSeconds: '5' | '10' = '5'
+): Promise<{ videoUrl: string }> {
+  const apiKey = await getRemoteConfig('FAL_KEY');
+  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  const prompt = 'Animate this image into a short cinematic video with subtle, natural camera movement. Keep the subject and composition unchanged.';
+  return runKlingImageToVideo(apiKey, sourceImageUrl, prompt, aspectRatio, durationSeconds);
 }
 
 // 요모조모 "프롬프트" 입력모드: 원본 이미지 없이 텍스트 설명만으로 특정 앵글의 이미지를 새로 그린다

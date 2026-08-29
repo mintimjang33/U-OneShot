@@ -36,7 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
       project.character_image_url || undefined,
       project.direction_prompt || undefined
     );
-    await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, status: 'done' }).eq('id', cutId);
+    // 이미지가 바뀌면 그 이미지를 소스로 만들었던 기존 동영상 클립은 더 이상 안 맞으므로 같이 지운다.
+    await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, video_url: null, status: 'done' }).eq('id', cutId);
     return NextResponse.json({ imageUrl });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

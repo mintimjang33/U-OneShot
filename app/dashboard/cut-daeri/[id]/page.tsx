@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use as usePromise } from 'react';
 import { CAPTION_FONTS, CAPTION_COLOR_SWATCHES, CAPTION_BACKGROUND_MODES, DEFAULT_CAPTION_STYLE, type CaptionStyle } from '../../../../lib/captionPresets';
 
-type Cut = { id: string; order_index: number; text: string; image_url: string | null; audio_url: string | null; status: string };
+type Cut = { id: string; order_index: number; text: string; image_url: string | null; video_url: string | null; audio_url: string | null; status: string };
 type Project = {
   id: string;
   topic: string | null;
@@ -61,7 +61,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   const [project, setProject] = useState<Project | null>(null);
   const [cuts, setCuts] = useState<Cut[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyKind, setBusyKind] = useState<'image' | 'voice' | 'upload' | null>(null);
+  const [busyKind, setBusyKind] = useState<'image' | 'voice' | 'upload' | 'video' | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [style, setStyle] = useState('natural');
   const [aspectRatio, setAspectRatio] = useState('9:16');
@@ -126,7 +126,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     setBusyId(null);
     setBusyKind(null);
     if (res.ok) {
-      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, status: 'done' } : c)));
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, video_url: null, status: 'done' } : c)));
     } else {
       alert(`이미지 생성 실패: ${data.error}`);
     }
@@ -142,9 +142,27 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     setBusyId(null);
     setBusyKind(null);
     if (res.ok) {
-      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, status: 'done' } : c)));
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, video_url: null, status: 'done' } : c)));
     } else {
       alert(`이미지 업로드 실패: ${data.error}`);
+    }
+  }
+
+  async function generateCutVideo(cutId: string) {
+    setBusyId(cutId);
+    setBusyKind('video');
+    const res = await fetch(`/api/cutdaeri/cuts/${cutId}/generate-video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ durationSeconds: '5' }),
+    });
+    const data = await res.json();
+    setBusyId(null);
+    setBusyKind(null);
+    if (res.ok) {
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, video_url: data.videoUrl } : c)));
+    } else {
+      alert(`동영상 생성 실패: ${data.error}`);
     }
   }
 
@@ -331,7 +349,9 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                 project.aspect_ratio === '9:16' || project.aspect_ratio === '3:4' ? 'w-24 h-40' : 'w-40 h-24'
               } flex items-center justify-center`}
             >
-              {cut.image_url ? (
+              {cut.video_url ? (
+                <video src={cut.video_url} className="w-full h-full object-cover" muted loop autoPlay playsInline />
+              ) : cut.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cut.image_url} alt={`컷 ${cut.order_index + 1}`} className="w-full h-full object-cover" />
               ) : (
@@ -373,6 +393,15 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                     e.target.value = '';
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => generateCutVideo(cut.id)}
+                  disabled={busy || !cut.image_url}
+                  title={!cut.image_url ? '먼저 이미지를 생성하거나 업로드해주세요' : undefined}
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+                >
+                  {busyId === cut.id && busyKind === 'video' ? '생성 중...' : cut.video_url ? '동영상 다시 생성' : '동영상'}
+                </button>
                 <button
                   type="button"
                   onClick={() => generateVoice(cut.id)}
