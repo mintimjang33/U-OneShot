@@ -41,6 +41,7 @@ import {
 } from '../../../lib/generateImage';
 import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
 import { isAdminUser } from '../../../lib/subscription';
+import { CAPTION_PRESETS, DEFAULT_CAPTION_PRESET_ID } from '../../../lib/captionPresets';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
 // userId를 생략한 도구 호출은 운영자 본인 계정(MCP_OWNER_USER_ID)을 기본으로 쓴다.
@@ -370,6 +371,50 @@ const baseHandler = createMcpHandler(
           const { data: project, error } = await supabase
             .from('uos_cutdaeri_projects')
             .update({ style, aspect_ratio: aspectRatio, character_image_url: characterImageUrl || null, direction_prompt: directionPrompt || null })
+            .eq('id', projectId)
+            .select()
+            .single();
+          if (error || !project) throw new Error(error?.message || '프로젝트를 찾을 수 없습니다.');
+          return textResult(JSON.stringify(project, null, 2));
+        } catch (err) {
+          return errorResult(err);
+        }
+      }
+    );
+
+    server.registerTool(
+      'set_cutdaeri_caption_style',
+      {
+        title: '컷비서 자막 스타일 지정 (4단계)',
+        description:
+          '최종 렌더링에 쓸 자막 프리셋/위치/커스텀 스타일을 지정한다. U-Short 워커가 이 값을 읽어서 렌더링에 반영한다. ' +
+          `프리셋: ${CAPTION_PRESETS.map((p) => p.id).join(', ')}. 위치: top/middle/bottom.`,
+        inputSchema: {
+          projectId: z.string(),
+          presetId: z.enum(CAPTION_PRESETS.map((p) => p.id) as [string, ...string[]]).optional(),
+          position: z.enum(['top', 'middle', 'bottom']).optional(),
+          custom: z
+            .object({
+              color: z.string().optional(),
+              backgroundColor: z.string().nullable().optional(),
+              outlineColor: z.string().nullable().optional(),
+              outlineWidth: z.number().optional(),
+              fontSize: z.number().optional(),
+            })
+            .optional()
+            .describe('지정하면 presetId 대신 이 값들로 자막 스타일을 덮어쓴다'),
+        },
+      },
+      async ({ projectId, presetId, position, custom }) => {
+        try {
+          const supabase = getSupabaseServerClient();
+          const { data: project, error } = await supabase
+            .from('uos_cutdaeri_projects')
+            .update({
+              caption_preset_id: presetId || DEFAULT_CAPTION_PRESET_ID,
+              caption_position: position || 'bottom',
+              caption_custom: custom || null,
+            })
             .eq('id', projectId)
             .select()
             .single();
@@ -908,7 +953,7 @@ const baseHandler = createMcpHandler(
       'U-OneShot(buronai.com 클론) MCP 서버 — Supabase 범용 CRUD(list_tables/get_rows/upsert_row/delete_row/run_sql — ' +
       'run_sql은 SELECT만 허용), 원샷배포 Threads 실제 발행(publish_thread_post — 발행 전 사람 승인 필수), ' +
       '11개 기능(9번째 떡상레이더는 검색형이라 전용 생성 도구 없음) 전부를 웹 UI 없이 직접 실행하는 도메인 도구(컷비서: generate_cutdaeri/' +
-      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
+      'generate_cutdaeri_cut_image/generate_cutdaeri_cut_voice/set_cutdaeri_caption_style/render_cutdaeri, 롱폼비서: generate_longdaeri, ' +
       '숏폼비서(독립 도구): generate_shortdaeri, 업로드 클리닉: generate_uploadrx, 요모조모: ' +
       'create_sabangpalbang/generate_sabangpalbang_angle, 썸네일 리믹스: create_thumbnail_variation/' +
       'create_thumbnail_copywriting, 가사비서: generate_lyrics, 리딩박스: save_readingbox_script/play_readingbox_script, ' +
