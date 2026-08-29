@@ -49,7 +49,7 @@ export async function checkMultiPublishQuota(userId: string): Promise<string | n
 // 기능(직언의방/떡상레이더 분석/롱폼비서·숏폼비서/가사비서/업로드 클리닉) 공통 게이트.
 export async function checkFeatureGate(
   userId: string,
-  feature: 'truthRoom' | 'butenaAnalysis' | 'longformShortform' | 'lyrics' | 'uploadClinic',
+  feature: 'truthRoom' | 'butenaAnalysis' | 'longformShortform' | 'lyrics' | 'uploadClinic' | 'cutdaeriTopicSuggestion',
   label: string
 ): Promise<string | null> {
   const { tier } = await getUserTier(userId);
@@ -118,5 +118,61 @@ export async function checkCutdaeriVideoQuota(userId: string): Promise<string | 
   if (error) throw new Error(error.message);
 
   if ((count || 0) >= limit) return `컷비서 동영상 이번 달 한도(${limit}회)를 다 쓰셨어요. 요금제를 업그레이드해주세요.`;
+  return null;
+}
+
+// 요모조모(사방팔방) 이미지/동영상, 썸네일 리믹스 월간 상한. 2026-08-30 재실측 전에는 이 세 기능에
+// 아무 게이트도 없어서 Free 계정도 무제한으로 쓸 수 있었음(원본은 전부 Standard 이상 전용) — 원본
+// 요금제표 재실측으로 뒤늦게 발견해서 추가함.
+export async function checkSabangpalbangImageQuota(userId: string): Promise<string | null> {
+  const { tier } = await getUserTier(userId);
+  const limit = TIER_LIMITS[tier].sabangpalbangImages;
+  if (limit === 0) return '요모조모 이미지 생성은 Standard 이상 플랜부터 이용할 수 있어요.';
+
+  const supabase = getSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('uos_sabangpalbang_angles')
+    .select('*, uos_sabangpalbang_projects!inner(user_id)', { count: 'exact', head: true })
+    .eq('uos_sabangpalbang_projects.user_id', userId)
+    .not('image_url', 'is', null)
+    .gte('created_at', (await monthStart()).toISOString());
+  if (error) throw new Error(error.message);
+
+  if ((count || 0) >= limit) return `요모조모 이미지 이번 달 한도(${limit}장)를 다 쓰셨어요. 요금제를 업그레이드해주세요.`;
+  return null;
+}
+
+export async function checkSabangpalbangVideoQuota(userId: string): Promise<string | null> {
+  const { tier } = await getUserTier(userId);
+  const limit = TIER_LIMITS[tier].sabangpalbangVideos;
+  if (limit === 0) return '요모조모 동영상 생성은 Standard 이상 플랜부터 이용할 수 있어요.';
+
+  const supabase = getSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('uos_sabangpalbang_projects')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('output_video_url', 'is', null)
+    .gte('created_at', (await monthStart()).toISOString());
+  if (error) throw new Error(error.message);
+
+  if ((count || 0) >= limit) return `요모조모 동영상 이번 달 한도(${limit}회)를 다 쓰셨어요. 요금제를 업그레이드해주세요.`;
+  return null;
+}
+
+export async function checkThumbnailRemixQuota(userId: string): Promise<string | null> {
+  const { tier } = await getUserTier(userId);
+  const limit = TIER_LIMITS[tier].thumbnailRemix;
+  if (limit === 0) return '썸네일 리믹스는 Standard 이상 플랜부터 이용할 수 있어요.';
+
+  const supabase = getSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('uos_thumbnailremix_projects')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', (await monthStart()).toISOString());
+  if (error) throw new Error(error.message);
+
+  if ((count || 0) >= limit) return `썸네일 리믹스 이번 달 한도(${limit}회)를 다 쓰셨어요. 요금제를 업그레이드해주세요.`;
   return null;
 }

@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../../../../lib/supabase';
 import { getCurrentUser } from '../../../../../../lib/supabaseServerAuth';
 import { SABANGPALBANG_ANGLES, generateAngleImage, generateAngleImageFromPrompt } from '../../../../../../lib/generateImage';
+import { checkSabangpalbangImageQuota } from '../../../../../../lib/subscription';
 
 export async function POST(request: Request, { params }: { params: Promise<{ angleId: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
   const { angleId } = await params;
+
+  const gateError = await checkSabangpalbangImageQuota(user.id);
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const supabase = getSupabaseServerClient();
   const { data: angle } = await supabase

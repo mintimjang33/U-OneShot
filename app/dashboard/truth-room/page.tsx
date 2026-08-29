@@ -4,15 +4,31 @@ import { useEffect, useRef, useState } from 'react';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-// 원본(8-2절) 실측 예시 질문의 취지를 참고해 우리 표현으로 새로 쓴 예시들.
-const SUGGESTED_PROMPTS = [
+// 원본(8-2절/2026-08-30 재실측) 실측 예시 질문의 취지를 참고해 우리 표현으로 새로 쓴 예시들.
+// 원본은 9개씩 노출 + "질문지 새로고침" 버튼으로 다른 배치를 보여준다 — 더 큰 풀(15개)에서 9개를
+// 무작위로 뽑아 같은 효과를 낸다.
+const SUGGESTED_PROMPTS_POOL = [
   '시청자가 영상 중간에 못 이탈하게 만드는 장치는?',
   '무자본으로 시작해서 대형 채널을 앞지르는 전략은?',
   '시청자가 "이거 완전 내 얘기잖아" 하고 몰입하게 만드는 법은?',
   '경쟁 채널과 손잡는 게 나을까, 각자 가는 게 나을까?',
   '악플 다는 사람을 오히려 팬으로 만드는 방법은?',
   '채널 아트 하나로 "전문가다" 싶게 만드는 법은?',
+  '썸네일만 보고도 무조건 눌러보고 싶게 만드는 시각적 장치는?',
+  '알고리즘이 좋아하는 "끝까지 보게 만드는" 시청 흐름은?',
+  '초보 유튜버가 알고리즘을 오해해서 저지르는 실수는?',
+  '영상 업로드 직후 1시간이 왜 그렇게 중요한가?',
+  '시청자의 몰입도를 좌우하는 편집 속도감의 비밀은?',
+  '내 영상이 갑자기 떡상하게 만드는 결정적 심리 지표는?',
+  '내 영상이 논란에 휘말렸을 때 제일 먼저 해야 할 대응은?',
+  '악플조차 열혈 팬으로 바꾸는 커뮤니티 운영 노하우는?',
+  '건강하게 오래 보게 만드는 시청 지속시간의 마지노선은?',
 ];
+
+function pickRandomPrompts(count: number): string[] {
+  const shuffled = [...SUGGESTED_PROMPTS_POOL].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 export default function TruthRoomPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,6 +36,7 @@ export default function TruthRoomPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>(() => pickRandomPrompts(9));
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,9 +82,18 @@ export default function TruthRoomPage() {
         {messages.length === 0 && (
           <div>
             <p className="text-lg font-black mb-1">반갑습니다, {username}님.</p>
-            <p className="text-sm text-muted mb-6">궁금한 건 뭐든 도플러에게 던져보세요.</p>
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-sm text-muted">궁금한 건 뭐든 도플러에게 던져보세요.</p>
+              <button
+                type="button"
+                onClick={() => setSuggestedPrompts(pickRandomPrompts(9))}
+                className="text-xs font-bold text-accent hover:underline shrink-0"
+              >
+                질문지 새로고침
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              {SUGGESTED_PROMPTS.map((q) => (
+              {suggestedPrompts.map((q) => (
                 <button
                   key={q}
                   type="button"

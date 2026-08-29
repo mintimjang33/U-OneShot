@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
 import { generateThumbnailVariant, generateThumbnailCopyImage } from '../../../lib/generateImage';
+import { checkThumbnailRemixQuota } from '../../../lib/subscription';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -25,6 +26,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+
+  const gateError = await checkThumbnailRemixQuota(user.id);
+  if (gateError) return NextResponse.json({ error: gateError }, { status: 403 });
 
   const formData = await request.formData().catch(() => null);
   const mode = String(formData?.get('mode') || 'variation');
