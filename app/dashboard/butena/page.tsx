@@ -153,7 +153,7 @@ export default function ButenaPage() {
                 type="button"
                 onClick={() => saveResult(r)}
                 disabled={savedIds.has(r.videoId)}
-                className="self-start text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1.5 hover:bg-neutral-50 disabled:opacity-40 shrink-0"
+                className="self-start text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1.5 hover:bg-white/10 disabled:opacity-40 shrink-0"
               >
                 {savedIds.has(r.videoId) ? '저장됨' : '보관함에 저장'}
               </button>

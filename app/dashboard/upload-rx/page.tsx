@@ -151,7 +151,7 @@ export default function UploadRxPage() {
               type="button"
               onClick={() => setStyle(s)}
               className={`text-xs font-bold rounded-[var(--radius-card-sm)] border px-2 py-2 ${
-                style === s ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+                style === s ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
               }`}
             >
               {s}

@@ -83,7 +83,7 @@ export default function CutDaeriPage() {
                 setCutCount(n);
               }}
               className={`text-xs font-bold rounded-[var(--radius-pill)] px-3 py-1.5 border ${
-                !useCustomCount && cutCount === n ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+                !useCustomCount && cutCount === n ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
               }`}
             >
               {n}
@@ -93,7 +93,7 @@ export default function CutDaeriPage() {
             type="button"
             onClick={() => setUseCustomCount(true)}
             className={`text-xs font-bold rounded-[var(--radius-pill)] px-3 py-1.5 border ${
-              useCustomCount ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+              useCustomCount ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
             }`}
           >
             직접 입력
@@ -130,7 +130,7 @@ export default function CutDaeriPage() {
             type="button"
             onClick={handleSuggestTopic}
             disabled={suggesting}
-            className="border border-border font-bold rounded-[var(--radius-card-sm)] px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-40 shrink-0"
+            className="border border-border font-bold rounded-[var(--radius-card-sm)] px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-40 shrink-0"
           >
             {suggesting ? '추천 중...' : '추천글감받기'}
           </button>

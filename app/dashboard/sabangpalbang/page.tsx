@@ -87,7 +87,7 @@ export default function SabangpalbangPage() {
               type="button"
               onClick={() => setMode(m)}
               className={`text-xs font-bold rounded-[var(--radius-pill)] px-4 py-1.5 border ${
-                mode === m ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+                mode === m ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
               }`}
             >
               {m === 'image' ? '이미지' : m === 'prompt' ? '프롬프트' : '동영상'}
@@ -152,7 +152,7 @@ export default function SabangpalbangPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.source_image_url} alt="원본" className="w-full h-24 object-cover" />
             ) : (
-              <div className="w-full h-24 bg-neutral-100 flex items-center justify-center text-[10px] text-muted">프롬프트 생성</div>
+              <div className="w-full h-24 bg-white/5 flex items-center justify-center text-[10px] text-muted">프롬프트 생성</div>
             )}
             <div className="text-xs font-bold p-2 text-center">{p.status}</div>
           </Link>

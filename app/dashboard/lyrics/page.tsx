@@ -198,7 +198,7 @@ export default function LyricsPage() {
                 {copied ? '복사됨!' : '복사하기'}
               </button>
             </div>
-            <p className="text-xs bg-black/5 rounded-[var(--radius-card-sm)] px-3 py-2 font-mono">{result.suno_prompt}</p>
+            <p className="text-xs bg-white/5 rounded-[var(--radius-card-sm)] px-3 py-2 font-mono">{result.suno_prompt}</p>
           </div>
         </div>
       )}

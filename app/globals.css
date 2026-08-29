@@ -1,18 +1,20 @@
 @import "tailwindcss";
 
-/* U-OneShot 디자인 시스템 — 앰버/오렌지 액센트. 원본(buronai.com)과 톤앤매너를 다르게
-   가져간다(유쓰레드가 바이올렛을 쓴 것과 같은 원칙). 다크모드는 아직 지원하지 않음(라이트 고정). */
+/* U-OneShot 디자인 시스템 — 1단계: buronai.com 실제 대시보드(로그인 후 화면, 2026-08-29 재실측)와
+   시각적으로 맞춤. 다크 배경 #0e0e0e + 시안(#0891b2) 액센트, Pretendard 폰트, 카드 radius 16px,
+   반투명 흰 보더/배경(원본은 border-white/10, bg-white/5 조합을 씀). 색상 자체를 원본과 다르게
+   차별화하는 건 2단계 작업으로 별도 진행 예정(사용자 확정, 2026-08-29). */
 :root {
-  --background: #ffffff;
-  --foreground: #1c1917;
-  --muted: #78716c;
-  --border: #e7e5e4;
-  --active-bg: #fff7ed;
-  --accent: #ea580c;
-  --accent-hover: #c2410c;
-  --accent-soft: #fff7ed;
-  --radius: 14px;
-  --radius-sm: 8px;
+  --background: #0e0e0e;
+  --foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.45);
+  --border: rgba(255, 255, 255, 0.1);
+  --active-bg: rgba(8, 145, 178, 0.12);
+  --accent: #0891b2;
+  --accent-hover: #0e7490;
+  --accent-soft: rgba(8, 145, 178, 0.1);
+  --radius: 16px;
+  --radius-sm: 10px;
   --radius-pill: 999px;
 }
 
@@ -30,8 +32,12 @@
   --radius-pill: var(--radius-pill);
 }
 
+/* body 자체는 랜딩/요금제/로그인 등 마케팅 페이지의 원래 라이트 테마를 유지한다(이 페이지들은
+   --background/--foreground 토큰을 안 쓰고 자체 라이트 색상 클래스를 씀). 다크+시안 테마는
+   /dashboard 하위에만 적용되도록 dashboard/layout.tsx 루트에서 bg-background text-foreground로
+   범위를 좁혀서 준다 — body에 그대로 물리면 마케팅 페이지까지 다크로 깨진다. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Pretendard, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #ffffff;
+  color: #1c1917;
+  font-family: Pretendard, "Noto Sans KR", Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
 }

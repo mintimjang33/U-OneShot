@@ -54,7 +54,7 @@ export default function SabangpalbangProjectPage({ params }: { params: Promise<{
             // eslint-disable-next-line @next/next/no-img-element
             <img src={project.source_image_url} alt="원본" className="w-32 h-32 object-cover rounded-[var(--radius-card)]" />
           ) : (
-            <div className="w-32 h-32 bg-neutral-100 rounded-[var(--radius-card)] flex items-center justify-center p-2 text-center">
+            <div className="w-32 h-32 bg-white/5 rounded-[var(--radius-card)] flex items-center justify-center p-2 text-center">
               <span className="text-[10px] text-muted">{project.prompt_text}</span>
             </div>
           )}
@@ -74,7 +74,7 @@ export default function SabangpalbangProjectPage({ params }: { params: Promise<{
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {angles.map((angle) => (
           <div key={angle.id} className="border border-border rounded-[var(--radius-card)] overflow-hidden">
-            <div className="w-full aspect-square bg-neutral-100 flex items-center justify-center">
+            <div className="w-full aspect-square bg-white/5 flex items-center justify-center">
               {angle.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={angle.image_url} alt={angle.angle_label} className="w-full h-full object-cover" />
@@ -88,7 +88,7 @@ export default function SabangpalbangProjectPage({ params }: { params: Promise<{
                 type="button"
                 onClick={() => generateAngle(angle.id)}
                 disabled={busyId !== null}
-                className="w-full text-[11px] font-bold border border-border rounded-[var(--radius-pill)] py-1 hover:bg-neutral-50 disabled:opacity-40"
+                className="w-full text-[11px] font-bold border border-border rounded-[var(--radius-pill)] py-1 hover:bg-white/10 disabled:opacity-40"
               >
                 {angle.image_url ? '다시 생성' : '생성'}
               </button>

@@ -58,7 +58,7 @@ export default function LongDaeriPage() {
               type="button"
               onClick={() => setCategory(c)}
               className={`text-xs font-bold rounded-[var(--radius-card-sm)] border px-3 py-2.5 ${
-                category === c ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+                category === c ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
               }`}
             >
               {c}

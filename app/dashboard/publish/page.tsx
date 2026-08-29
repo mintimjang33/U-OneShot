@@ -288,7 +288,7 @@ export default function PublishPage() {
                   <button
                     type="button"
                     onClick={CONNECT_FN[platform]}
-                    className="w-full border border-border rounded-[var(--radius-card-sm)] py-1.5 text-[11px] font-bold hover:bg-neutral-50"
+                    className="w-full border border-border rounded-[var(--radius-card-sm)] py-1.5 text-[11px] font-bold hover:bg-white/10"
                   >
                     연결하기
                   </button>

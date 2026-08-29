@@ -128,7 +128,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                 type="button"
                 onClick={() => setStyle(s.value)}
                 className={`text-sm font-bold rounded-[var(--radius-card-sm)] border px-3 py-3 ${
-                  style === s.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-neutral-50'
+                  style === s.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
                 }`}
               >
                 {s.label}
@@ -190,7 +190,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         {cuts.map((cut) => (
           <div key={cut.id} className="border border-border rounded-[var(--radius-card)] p-4 flex gap-4">
             <div
-              className={`shrink-0 bg-neutral-100 rounded-[var(--radius-card-sm)] overflow-hidden ${
+              className={`shrink-0 bg-white/5 rounded-[var(--radius-card-sm)] overflow-hidden ${
                 project.aspect_ratio === '9:16' ? 'w-24 h-40' : 'w-40 h-24'
               } flex items-center justify-center`}
             >
@@ -209,7 +209,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                   type="button"
                   onClick={() => generateImage(cut.id)}
                   disabled={busy}
-                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-neutral-50 disabled:opacity-40"
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
                 >
                   {cut.image_url ? '이미지 다시 생성' : '이미지 생성'}
                 </button>
@@ -217,7 +217,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                   type="button"
                   onClick={() => generateVoice(cut.id)}
                   disabled={busy}
-                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-neutral-50 disabled:opacity-40"
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
                 >
                   {busyId === cut.id && busyKind === 'voice' ? '생성 중...' : cut.audio_url ? '음성 다시 생성' : '음성 생성'}
                 </button>

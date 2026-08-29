@@ -18,7 +18,7 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-background text-foreground">
       <aside className="w-56 border-r border-border p-4 hidden md:block">
         <Link href="/" className="font-black text-lg flex items-center gap-2 mb-8">
           <span className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-sm">U</span>
@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key={item.href}
               href={item.ready ? item.href : '#'}
               className={`flex items-center justify-between text-sm rounded-[var(--radius-card-sm)] px-3 py-2 ${
-                item.ready ? 'hover:bg-active-bg font-medium' : 'text-neutral-300 cursor-default'
+                item.ready ? 'hover:bg-active-bg font-medium' : 'text-white/30 cursor-default'
               }`}
             >
               {item.label}
