@@ -3,12 +3,47 @@
 import { useEffect, useState, useRef, use as usePromise } from 'react';
 
 type Cut = { id: string; order_index: number; text: string; image_url: string | null; audio_url: string | null; status: string };
-type Project = { id: string; topic: string | null; script: string; style: string | null; aspect_ratio: string; status: string; video_url: string | null };
+type Project = {
+  id: string;
+  topic: string | null;
+  script: string;
+  style: string | null;
+  aspect_ratio: string;
+  character_image_url: string | null;
+  direction_prompt: string | null;
+  status: string;
+  video_url: string | null;
+};
 
+// lib/generateImage.ts의 CUTDAERI_STYLES와 순서를 맞춘 목록(UI 표시용).
 const STYLE_OPTIONS = [
   { value: 'portrait', label: '인물 중심' },
-  { value: 'natural', label: '내추럴(배경 중심)' },
-  { value: 'editorial', label: '에디토리얼(제품 중심)' },
+  { value: 'natural', label: '내추럴' },
+  { value: 'editorial', label: '에디토리얼' },
+  { value: 'illustration', label: '일러스트' },
+  { value: '3d_character', label: '3D 캐릭터' },
+  { value: 'risograph', label: '리소그래프' },
+  { value: 'pixel_art', label: '픽셀아트' },
+  { value: 'oil_painting', label: '유화' },
+  { value: 'korean_traditional', label: '한국 전통화' },
+  { value: 'cartoon', label: '카툰' },
+  { value: 'pop_surreal', label: '팝 초현실' },
+  { value: 'vibrant_film', label: '비브런트 필름' },
+  { value: 'fashion_photo', label: '패션 포토' },
+  { value: 'glitch_collage', label: '글리치 콜라주' },
+  { value: 'retro_film', label: '레트로 필름' },
+  { value: 'cross_process', label: '크로스프로세스' },
+  { value: 'film_landscape', label: '필름 풍경' },
+  { value: 'bold_line', label: '볼드 라인' },
+  { value: 'watercolor', label: '수채화' },
+];
+
+const ASPECT_RATIOS = [
+  { value: '9:16', label: '9:16 (숏폼)' },
+  { value: '16:9', label: '16:9 (유튜브)' },
+  { value: '1:1', label: '1:1 (정사각형)' },
+  { value: '4:3', label: '4:3 (클래식)' },
+  { value: '3:4', label: '3:4 (포트레이트)' },
 ];
 
 function StepBadge({ n, label }: { n: number; label: string }) {
@@ -24,10 +59,14 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   const [project, setProject] = useState<Project | null>(null);
   const [cuts, setCuts] = useState<Cut[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyKind, setBusyKind] = useState<'image' | 'voice' | null>(null);
+  const [busyKind, setBusyKind] = useState<'image' | 'voice' | 'upload' | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [style, setStyle] = useState('natural');
+  const [aspectRatio, setAspectRatio] = useState('9:16');
+  const [directionPrompt, setDirectionPrompt] = useState('');
   const [settingStyle, setSettingStyle] = useState(false);
+  const characterFileRef = useRef<HTMLInputElement>(null);
+  const uploadFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function load() {
@@ -52,11 +91,14 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
 
   async function confirmStyle() {
     setSettingStyle(true);
-    const res = await fetch(`/api/cutdaeri/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ style }),
-    });
+    const formData = new FormData();
+    formData.append('style', style);
+    formData.append('aspectRatio', aspectRatio);
+    if (directionPrompt) formData.append('directionPrompt', directionPrompt);
+    const characterFile = characterFileRef.current?.files?.[0];
+    if (characterFile) formData.append('characterImage', characterFile);
+
+    const res = await fetch(`/api/cutdaeri/${id}`, { method: 'PATCH', body: formData });
     const data = await res.json();
     setSettingStyle(false);
     if (res.ok) setProject(data.project);
@@ -73,6 +115,22 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
       setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, status: 'done' } : c)));
     } else {
       alert(`이미지 생성 실패: ${data.error}`);
+    }
+  }
+
+  async function uploadImage(cutId: string, file: File) {
+    setBusyId(cutId);
+    setBusyKind('upload');
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch(`/api/cutdaeri/cuts/${cutId}/upload-image`, { method: 'POST', body: formData });
+    const data = await res.json();
+    setBusyId(null);
+    setBusyKind(null);
+    if (res.ok) {
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, status: 'done' } : c)));
+    } else {
+      alert(`이미지 업로드 실패: ${data.error}`);
     }
   }
 
@@ -110,31 +168,75 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
 
   if (!project) return <div className="text-sm text-muted">불러오는 중...</div>;
 
-  // 2단계: 스타일을 아직 안 정했으면 컷 생성을 막고 스타일 선택 화면을 먼저 보여준다.
+  // 2단계: 스타일을 아직 안 정했으면 컷 생성을 막고 스타일/화면비율/캐릭터/디렉션 선택 화면을 먼저 보여준다.
   if (!project.style) {
     return (
-      <div className="max-w-xl">
+      <div className="max-w-2xl">
         <div className="flex items-center gap-3 mb-1">
           <h1 className="text-2xl font-black">컷비서</h1>
           <StepBadge n={2} label="이미지 스타일" />
         </div>
         <p className="text-sm text-muted mb-8">이 프로젝트에 쓸 이미지 스타일을 골라주세요. 컷 {cuts.length}개 준비됨.</p>
 
-        <div className="border border-border rounded-[var(--radius-card)] p-6">
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {STYLE_OPTIONS.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => setStyle(s.value)}
-                className={`text-sm font-bold rounded-[var(--radius-card-sm)] border px-3 py-3 ${
-                  style === s.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+        <div className="border border-border rounded-[var(--radius-card)] p-6 space-y-6">
+          <div>
+            <div className="text-xs font-bold text-muted mb-2">스타일</div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {STYLE_OPTIONS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setStyle(s.value)}
+                  className={`text-xs font-bold rounded-[var(--radius-card-sm)] border px-2 py-2.5 ${
+                    style === s.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
+
+          <div>
+            <div className="text-xs font-bold text-muted mb-2">화면 비율</div>
+            <div className="flex flex-wrap gap-2">
+              {ASPECT_RATIOS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setAspectRatio(r.value)}
+                  className={`text-xs font-bold rounded-[var(--radius-pill)] border px-3 py-1.5 ${
+                    aspectRatio === r.value ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-bold text-muted mb-1">이미지 모델</div>
+            <p className="text-xs border border-border rounded-[var(--radius-card-sm)] px-3 py-2 inline-block">Google Nano Banana 2</p>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted block mb-1">추가 디렉션 프롬프트 (선택)</label>
+            <textarea
+              value={directionPrompt}
+              onChange={(e) => setDirectionPrompt(e.target.value)}
+              placeholder="배경, 인물, 분위기 등 추가 디렉션을 입력하세요 (비워두면 자동 생성)"
+              rows={2}
+              className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted block mb-1">캐릭터 (선택)</label>
+            <p className="text-[11px] text-muted mb-1">레퍼런스 이미지를 업로드하면 모든 컷에 동일 인물이 등장합니다.</p>
+            <input ref={characterFileRef} type="file" accept="image/*" className="text-sm block" />
+          </div>
+
           <button
             type="button"
             onClick={confirmStyle}
@@ -160,6 +262,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
       </div>
       <p className="text-xs text-muted mb-6">
         {STYLE_OPTIONS.find((s) => s.value === project.style)?.label} · {project.aspect_ratio} · 컷 {cuts.length}개
+        {project.character_image_url && ' · 캐릭터 고정'}
       </p>
 
       <details className="mb-6 border border-border rounded-[var(--radius-card)] p-4">
@@ -191,14 +294,16 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
           <div key={cut.id} className="border border-border rounded-[var(--radius-card)] p-4 flex gap-4">
             <div
               className={`shrink-0 bg-white/5 rounded-[var(--radius-card-sm)] overflow-hidden ${
-                project.aspect_ratio === '9:16' ? 'w-24 h-40' : 'w-40 h-24'
+                project.aspect_ratio === '9:16' || project.aspect_ratio === '3:4' ? 'w-24 h-40' : 'w-40 h-24'
               } flex items-center justify-center`}
             >
               {cut.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cut.image_url} alt={`컷 ${cut.order_index + 1}`} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[10px] text-muted">{busyId === cut.id && busyKind === 'image' ? '생성 중...' : '이미지 없음'}</span>
+                <span className="text-[10px] text-muted">
+                  {busyId === cut.id && (busyKind === 'image' || busyKind === 'upload') ? '처리 중...' : '이미지 없음'}
+                </span>
               )}
             </div>
             <div className="flex-1">
@@ -211,8 +316,29 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                   disabled={busy}
                   className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
                 >
-                  {cut.image_url ? '이미지 다시 생성' : '이미지 생성'}
+                  {cut.image_url ? 'AI 다시 생성' : 'AI 생성'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => uploadFileRefs.current[cut.id]?.click()}
+                  disabled={busy}
+                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+                >
+                  업로드
+                </button>
+                <input
+                  ref={(el) => {
+                    uploadFileRefs.current[cut.id] = el;
+                  }}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadImage(cut.id, file);
+                    e.target.value = '';
+                  }}
+                />
                 <button
                   type="button"
                   onClick={() => generateVoice(cut.id)}

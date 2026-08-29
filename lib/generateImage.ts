@@ -1,24 +1,74 @@
 import { getRemoteConfig } from './remoteConfig';
 
-const STYLE_PREFIX: Record<string, string> = {
-  portrait: 'photorealistic portrait photography, cinematic lighting, shallow depth of field, focus on a person,',
-  natural: 'photorealistic environmental photography, natural lighting, wide shot, atmospheric background,',
-  editorial: 'professional product photography, studio lighting, clean minimal background, editorial style,',
-};
+// 컷비서 2단계(이미지 스타일) — 2026-08-29 재로그인 실측(10-3절)으로 원본 실제 스타일 프리셋을 확인해서
+// 3개(portrait/natural/editorial)에서 19개로 확장함. "레퍼런스 이미지"(업로드한 이미지의 스타일을
+// 그대로 따라가는 옵션)는 별도 이미지 입력 처리가 필요해서 이번 재작업 범위에서는 제외함 — 필요하면
+// 다음에 캐릭터 레퍼런스와는 별개로 추가할 것.
+export const CUTDAERI_STYLES: { value: string; label: string; prompt: string }[] = [
+  { value: 'portrait', label: '인물 중심', prompt: 'photorealistic portrait photography, cinematic lighting, shallow depth of field, focus on a person' },
+  { value: 'natural', label: '내추럴', prompt: 'photorealistic environmental photography, natural lighting, wide shot, atmospheric background' },
+  { value: 'editorial', label: '에디토리얼', prompt: 'professional editorial photography, studio lighting, clean minimal composition' },
+  { value: 'illustration', label: '일러스트', prompt: 'digital illustration, clean linework, flat colors' },
+  { value: '3d_character', label: '3D 캐릭터', prompt: '3D rendered character illustration, pixar-like style, soft studio lighting' },
+  { value: 'risograph', label: '리소그래프', prompt: 'risograph print style, limited color palette, grainy halftone texture' },
+  { value: 'pixel_art', label: '픽셀아트', prompt: 'pixel art style, retro video game aesthetic' },
+  { value: 'oil_painting', label: '유화', prompt: 'oil painting style, visible brush strokes, rich color depth' },
+  { value: 'korean_traditional', label: '한국 전통화', prompt: 'traditional Korean ink painting style, minhwa folk art aesthetic' },
+  { value: 'cartoon', label: '카툰', prompt: 'cartoon illustration style, bold outlines, vibrant flat colors' },
+  { value: 'pop_surreal', label: '팝 초현실', prompt: 'pop surrealism art style, dreamlike vivid colors' },
+  { value: 'vibrant_film', label: '비브런트 필름', prompt: 'vibrant film photography, saturated colors, punchy contrast' },
+  { value: 'fashion_photo', label: '패션 포토', prompt: 'high fashion editorial photography, dramatic studio lighting' },
+  { value: 'glitch_collage', label: '글리치 콜라주', prompt: 'glitch art collage style, digital distortion effects' },
+  { value: 'retro_film', label: '레트로 필름', prompt: 'retro film photography, vintage grain, faded colors' },
+  { value: 'cross_process', label: '크로스프로세스', prompt: 'cross-processed film photography, shifted color tones' },
+  { value: 'film_landscape', label: '필름 풍경', prompt: 'cinematic landscape film photography, wide vista' },
+  { value: 'bold_line', label: '볼드 라인', prompt: 'bold line art illustration, thick black outlines, minimal shading' },
+  { value: 'watercolor', label: '수채화', prompt: 'watercolor painting style, soft washes, delicate color bleed' },
+];
 
-// fal.ai flux/schnell로 컷 텍스트 기반 이미지를 생성한다. 컷대리 스타일(인물/내추럴/에디토리얼)별로
-// 고정 프롬프트 접두사를 붙여 톤앤매너를 통일한다.
-// ⚠️ 캐릭터 일관성(레퍼런스 이미지로 동일 인물 유지)은 아직 미구현 — 다음 단계에서 image-to-image로 확장 예정.
-export async function generateCutImage(cutText: string, style: string): Promise<{ imageUrl: string }> {
+const CUTDAERI_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4'];
+function normalizeCutdaeriAspectRatio(aspectRatio?: string): string {
+  return aspectRatio && CUTDAERI_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '9:16';
+}
+
+// 컷 텍스트 기반 이미지를 생성한다. 원본이 "Google Nano Banana 2"를 이미지 모델로 쓰는 걸 실측으로
+// 확인해서(2026-08-29) fal-ai/nano-banana(계열)로 통일함. characterImageUrl이 있으면(2단계 "캐릭터"
+// 섹션에서 업로드) nano-banana/edit으로 그 인물을 참조해 모든 컷에 동일 인물이 등장하도록 하고,
+// 없으면 순수 text-to-image로 생성한다.
+export async function generateCutImage(
+  cutText: string,
+  style: string,
+  aspectRatio?: string,
+  characterImageUrl?: string,
+  directionPrompt?: string
+): Promise<{ imageUrl: string }> {
   const apiKey = await getRemoteConfig('FAL_KEY');
   if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
 
-  const prompt = `${STYLE_PREFIX[style] || STYLE_PREFIX.natural} ${cutText}`;
+  const stylePrompt = CUTDAERI_STYLES.find((s) => s.value === style)?.prompt || CUTDAERI_STYLES[1].prompt;
+  const directionPart = directionPrompt?.trim() ? ` ${directionPrompt}.` : '';
+  const ratio = normalizeCutdaeriAspectRatio(aspectRatio);
 
-  const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
+  if (characterImageUrl) {
+    const prompt =
+      `Depict the same character/person from the reference image in this new scene, keeping their face and appearance ` +
+      `consistent: ${cutText}. Style: ${stylePrompt}.${directionPart}`;
+    const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
+      method: 'POST',
+      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, image_urls: [characterImageUrl], aspect_ratio: ratio, num_images: 1, output_format: 'png' }),
+    });
+    const json = await res.json();
+    const imageUrl = json.images?.[0]?.url;
+    if (!res.ok || !imageUrl) throw new Error(json.detail || JSON.stringify(json));
+    return { imageUrl };
+  }
+
+  const prompt = `${stylePrompt}, ${cutText}.${directionPart}`;
+  const res = await fetch('https://fal.run/fal-ai/nano-banana', {
     method: 'POST',
     headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_size: 'portrait_16_9', num_images: 1 }),
+    body: JSON.stringify({ prompt, aspect_ratio: ratio, num_images: 1, output_format: 'png' }),
   });
   const json = await res.json();
   const imageUrl = json.images?.[0]?.url;

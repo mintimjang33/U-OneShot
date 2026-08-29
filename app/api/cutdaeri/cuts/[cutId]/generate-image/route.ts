@@ -9,7 +9,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
   const { cutId } = await params;
 
   const supabase = getSupabaseServerClient();
-  const { data: cut } = await supabase.from('uos_cutdaeri_cuts').select('*, uos_cutdaeri_projects!inner(user_id, style)').eq('id', cutId).maybeSingle();
+  const { data: cut } = await supabase
+    .from('uos_cutdaeri_cuts')
+    .select('*, uos_cutdaeri_projects!inner(user_id, style, aspect_ratio, character_image_url, direction_prompt)')
+    .eq('id', cutId)
+    .maybeSingle();
   if (!cut || cut.uos_cutdaeri_projects.user_id !== user.id) {
     return NextResponse.json({ error: '컷을 찾을 수 없습니다.' }, { status: 404 });
   }
@@ -17,7 +21,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
   await supabase.from('uos_cutdaeri_cuts').update({ status: 'generating' }).eq('id', cutId);
 
   try {
-    const { imageUrl } = await generateCutImage(cut.text, cut.uos_cutdaeri_projects.style);
+    const project = cut.uos_cutdaeri_projects;
+    const { imageUrl } = await generateCutImage(
+      cut.text,
+      project.style,
+      project.aspect_ratio,
+      project.character_image_url || undefined,
+      project.direction_prompt || undefined
+    );
     await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, status: 'done' }).eq('id', cutId);
     return NextResponse.json({ imageUrl });
   } catch (err) {

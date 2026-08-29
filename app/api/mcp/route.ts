@@ -28,6 +28,7 @@ import {
 } from '../../../lib/generateScript';
 import {
   generateCutImage,
+  CUTDAERI_STYLES,
   generateAngleImage,
   generateAngleImageFromPrompt,
   SABANGPALBANG_ANGLES,
@@ -249,7 +250,7 @@ const baseHandler = createMcpHandler(
           script: z.string().describe('사용자가 이미 작성한 완성된 원고'),
           cutCount: z.number().int().min(2).max(30),
           topic: z.string().optional(),
-          aspectRatio: z.enum(['9:16', '16:9']).optional(),
+          aspectRatio: z.enum(['9:16', '16:9', '1:1', '4:3', '3:4']).optional(),
           userId: z.string().optional(),
         },
       },
@@ -278,13 +279,26 @@ const baseHandler = createMcpHandler(
       'update_cutdaeri_style',
       {
         title: '컷비서 스타일 지정 (2단계)',
-        description: '생성된 프로젝트에 이미지 스타일을 정한다. 스타일이 없으면 컷 이미지 생성이 불가하다.',
-        inputSchema: { projectId: z.string(), style: z.enum(['portrait', 'natural', 'editorial']) },
+        description:
+          '생성된 프로젝트에 이미지 스타일/화면비율/캐릭터 레퍼런스/추가 디렉션을 정한다. 스타일이 없으면 컷 이미지 생성이 불가하다. ' +
+          `스타일 종류: ${CUTDAERI_STYLES.map((s) => s.value).join(', ')}.`,
+        inputSchema: {
+          projectId: z.string(),
+          style: z.enum(CUTDAERI_STYLES.map((s) => s.value) as [string, ...string[]]),
+          aspectRatio: z.enum(['9:16', '16:9', '1:1', '4:3', '3:4']).optional(),
+          characterImageUrl: z.string().optional().describe('공개 접근 가능한 캐릭터 레퍼런스 이미지 URL(선택) — 있으면 모든 컷에 동일 인물이 등장한다'),
+          directionPrompt: z.string().optional(),
+        },
       },
-      async ({ projectId, style }) => {
+      async ({ projectId, style, aspectRatio = '9:16', characterImageUrl, directionPrompt }) => {
         try {
           const supabase = getSupabaseServerClient();
-          const { data: project, error } = await supabase.from('uos_cutdaeri_projects').update({ style }).eq('id', projectId).select().single();
+          const { data: project, error } = await supabase
+            .from('uos_cutdaeri_projects')
+            .update({ style, aspect_ratio: aspectRatio, character_image_url: characterImageUrl || null, direction_prompt: directionPrompt || null })
+            .eq('id', projectId)
+            .select()
+            .single();
           if (error || !project) throw new Error(error?.message || '프로젝트를 찾을 수 없습니다.');
           return textResult(JSON.stringify(project, null, 2));
         } catch (err) {
@@ -303,9 +317,20 @@ const baseHandler = createMcpHandler(
       async ({ cutId }) => {
         try {
           const supabase = getSupabaseServerClient();
-          const { data: cut } = await supabase.from('uos_cutdaeri_cuts').select('*, uos_cutdaeri_projects!inner(style)').eq('id', cutId).maybeSingle();
+          const { data: cut } = await supabase
+            .from('uos_cutdaeri_cuts')
+            .select('*, uos_cutdaeri_projects!inner(style, aspect_ratio, character_image_url, direction_prompt)')
+            .eq('id', cutId)
+            .maybeSingle();
           if (!cut) throw new Error('컷을 찾을 수 없습니다.');
-          const { imageUrl } = await generateCutImage(cut.text, cut.uos_cutdaeri_projects.style);
+          const project = cut.uos_cutdaeri_projects;
+          const { imageUrl } = await generateCutImage(
+            cut.text,
+            project.style,
+            project.aspect_ratio,
+            project.character_image_url || undefined,
+            project.direction_prompt || undefined
+          );
           await supabase.from('uos_cutdaeri_cuts').update({ image_url: imageUrl, status: 'done' }).eq('id', cutId);
           return textResult(imageUrl);
         } catch (err) {
