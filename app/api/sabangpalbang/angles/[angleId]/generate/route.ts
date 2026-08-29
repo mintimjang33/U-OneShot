@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ang
   const supabase = getSupabaseServerClient();
   const { data: angle } = await supabase
     .from('uos_sabangpalbang_angles')
-    .select('*, uos_sabangpalbang_projects!inner(user_id, source_image_url, input_mode, prompt_text)')
+    .select('*, uos_sabangpalbang_projects!inner(user_id, source_image_url, input_mode, prompt_text, aspect_ratio)')
     .eq('id', angleId)
     .maybeSingle();
   if (!angle || angle.uos_sabangpalbang_projects.user_id !== user.id) {
@@ -25,8 +25,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ ang
     const project = angle.uos_sabangpalbang_projects;
     const { imageUrl } =
       project.input_mode === 'prompt'
-        ? await generateAngleImageFromPrompt(project.prompt_text, anglePrompt)
-        : await generateAngleImage(project.source_image_url, anglePrompt);
+        ? await generateAngleImageFromPrompt(project.prompt_text, anglePrompt, project.aspect_ratio)
+        : await generateAngleImage(project.source_image_url, anglePrompt, project.aspect_ratio);
     await supabase.from('uos_sabangpalbang_angles').update({ image_url: imageUrl, status: 'done' }).eq('id', angleId);
     return NextResponse.json({ imageUrl });
   } catch (err) {

@@ -27,7 +27,7 @@ import {
   LYRICS_GENRES,
   LYRICS_VOCAL_TYPES,
 } from '../../../lib/generateScript';
-import { generateCutImage, generateAngleImage, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
+import { generateCutImage, generateAngleImage, generateAngleImageFromPrompt, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
 import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
@@ -449,7 +449,7 @@ const baseHandler = createMcpHandler(
           sourceImageUrl: z.string().optional().describe('공개 접근 가능한 원본 이미지 URL(이미지 모드일 때)'),
           promptText: z.string().optional().describe('원본 이미지 대신 쓸 피사체 설명(프롬프트 모드일 때)'),
           angleIndexes: z.array(z.number().int().min(0).max(7)).min(1).describe('SABANGPALBANG_ANGLES 배열 기준 인덱스(0~7), 원하는 앵글만'),
-          aspectRatio: z.enum(['9:16', '16:9']).optional(),
+          aspectRatio: z.enum(['9:16', '16:9', '1:1', '2:3', '3:2']).optional(),
           userId: z.string().optional(),
         },
       },
@@ -493,12 +493,16 @@ const baseHandler = createMcpHandler(
           const supabase = getSupabaseServerClient();
           const { data: angle } = await supabase
             .from('uos_sabangpalbang_angles')
-            .select('*, uos_sabangpalbang_projects!inner(source_image_url)')
+            .select('*, uos_sabangpalbang_projects!inner(source_image_url, prompt_text, input_mode, aspect_ratio)')
             .eq('id', angleId)
             .maybeSingle();
           if (!angle) throw new Error('앵글을 찾을 수 없습니다.');
           const anglePrompt = SABANGPALBANG_ANGLES[angle.order_index]?.prompt || angle.angle_label;
-          const { imageUrl } = await generateAngleImage(angle.uos_sabangpalbang_projects.source_image_url, anglePrompt);
+          const project = angle.uos_sabangpalbang_projects;
+          const { imageUrl } =
+            project.input_mode === 'prompt'
+              ? await generateAngleImageFromPrompt(project.prompt_text, anglePrompt, project.aspect_ratio)
+              : await generateAngleImage(project.source_image_url, anglePrompt, project.aspect_ratio);
           await supabase.from('uos_sabangpalbang_angles').update({ image_url: imageUrl, status: 'done' }).eq('id', angleId);
           return textResult(imageUrl);
         } catch (err) {

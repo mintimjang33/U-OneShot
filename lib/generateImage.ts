@@ -28,30 +28,44 @@ export async function generateCutImage(cutText: string, style: string): Promise<
 }
 
 // 사방팔방: 8개 앵글 정의(순서 고정). order_index로 참조한다.
+// 2026-08-29 재로그인 실측(10-3절)으로 원본 실제 8개 앵글과 순서를 확인해서 교체함 — 이전 값(정면/
+// 3-4앵글/좌측면/우측면/후면/탑다운/로우앵글/클로즈업)은 실측 없이 임의로 지은 것이라 실제와 거의 안 겹쳤음.
 export const SABANGPALBANG_ANGLES: { label: string; prompt: string }[] = [
-  { label: '정면', prompt: 'front view, direct frontal angle' },
-  { label: '3/4 앵글', prompt: '3/4 angle view from the front-left' },
-  { label: '좌측면', prompt: 'left side profile view, 90 degrees' },
-  { label: '우측면', prompt: 'right side profile view, 90 degrees' },
-  { label: '후면', prompt: 'back view, rear angle' },
-  { label: '탑다운', prompt: "top-down bird's eye view, looking straight down" },
-  { label: '로우앵글', prompt: 'low angle view looking upward, dramatic perspective' },
-  { label: '클로즈업', prompt: 'close-up macro detail shot, sharp focus on texture' },
+  { label: '익스트림 클로즈업', prompt: 'extreme close-up shot, subject fills the entire frame' },
+  { label: '옆모습 클로즈업', prompt: 'side profile close-up crop of the subject' },
+  { label: '45도 앵글', prompt: 'shot from a 45-degree oblique angle' },
+  { label: '하이 앵글', prompt: 'high angle shot looking down from above' },
+  { label: '로우 앵글', prompt: 'low angle shot looking slightly upward, dramatic perspective' },
+  { label: '풀샷', prompt: 'full shot with the entire subject framed in view' },
+  { label: '뒷모습', prompt: 'back view of the subject seen from behind' },
+  { label: '오버더 숄더', prompt: 'over-the-shoulder cinematic angle, camera looking past the subject from behind' },
 ];
 
-// 사방팔방: 원본 이미지 1장 + 앵글 프롬프트 → fal.ai flux-pro/kontext(이미지 편집 모델)로 같은 스타일·질감을
-// 유지한 채 다른 앵글의 이미지를 생성한다. 텍스트만으로 새로 그리는 generateCutImage와 달리, 원본 이미지를
-// image_url로 함께 넘겨서 "이 피사체를 다른 각도에서" 편집하도록 시킨다.
-export async function generateAngleImage(sourceImageUrl: string, anglePrompt: string): Promise<{ imageUrl: string }> {
+const NANO_BANANA_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '2:3', '3:2'];
+function normalizeAspectRatio(aspectRatio?: string): string {
+  return aspectRatio && NANO_BANANA_ASPECT_RATIOS.includes(aspectRatio) ? aspectRatio : '9:16';
+}
+
+// 사방팔방: 원본 이미지 1장 + 앵글 프롬프트 → fal-ai/nano-banana/edit(Google Gemini 2.5 Flash Image)로
+// 같은 스타일·질감을 유지한 채 다른 앵글의 이미지를 생성한다. 원본은 "Google Nano Banana 2"를 이미지
+// 모델로 쓰는 걸 실측으로 확인해서(2026-08-29, 10-3절) flux-pro/kontext에서 nano-banana/edit로 전환함
+// — 화면비율(aspect_ratio) 파라미터를 명시적으로 받을 수 있어서 5종 비율 선택도 실제로 적용된다.
+export async function generateAngleImage(sourceImageUrl: string, anglePrompt: string, aspectRatio?: string): Promise<{ imageUrl: string }> {
   const apiKey = await getRemoteConfig('FAL_KEY');
   if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
 
   const prompt = `Show this exact same subject from a different camera angle: ${anglePrompt}. Keep the same style, texture, materials, colors and lighting as the original image — only the camera angle changes.`;
 
-  const res = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
+  const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
     method: 'POST',
     headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_url: sourceImageUrl, num_images: 1, output_format: 'png' }),
+    body: JSON.stringify({
+      prompt,
+      image_urls: [sourceImageUrl],
+      aspect_ratio: normalizeAspectRatio(aspectRatio),
+      num_images: 1,
+      output_format: 'png',
+    }),
   });
   const json = await res.json();
   const imageUrl = json.images?.[0]?.url;
@@ -61,17 +75,17 @@ export async function generateAngleImage(sourceImageUrl: string, anglePrompt: st
 }
 
 // 요모조모 "프롬프트" 입력모드: 원본 이미지 없이 텍스트 설명만으로 특정 앵글의 이미지를 새로 그린다
-// (image-to-image가 아니라 text-to-image — fal.ai flux/schnell 사용).
-export async function generateAngleImageFromPrompt(subjectPrompt: string, anglePrompt: string): Promise<{ imageUrl: string }> {
+// (image-to-image가 아니라 text-to-image — fal-ai/nano-banana, aspect_ratio 명시 지원).
+export async function generateAngleImageFromPrompt(subjectPrompt: string, anglePrompt: string, aspectRatio?: string): Promise<{ imageUrl: string }> {
   const apiKey = await getRemoteConfig('FAL_KEY');
   if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
 
   const prompt = `${subjectPrompt}, ${anglePrompt}, consistent style and lighting across all angles, photorealistic`;
 
-  const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
+  const res = await fetch('https://fal.run/fal-ai/nano-banana', {
     method: 'POST',
     headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, image_size: 'square_hd', num_images: 1 }),
+    body: JSON.stringify({ prompt, aspect_ratio: normalizeAspectRatio(aspectRatio), num_images: 1, output_format: 'png' }),
   });
   const json2 = await res.json();
   const imageUrl2 = json2.images?.[0]?.url;

@@ -25,7 +25,9 @@ export async function POST(request: Request) {
 
   const formData = await request.formData().catch(() => null);
   const mode = String(formData?.get('mode') || 'image');
-  const aspectRatio: string = formData?.get('aspectRatio') === '16:9' ? '16:9' : '9:16';
+  const ASPECT_RATIOS = ['9:16', '16:9', '1:1', '2:3', '3:2'];
+  const requestedAspectRatio = String(formData?.get('aspectRatio') || '9:16');
+  const aspectRatio: string = ASPECT_RATIOS.includes(requestedAspectRatio) ? requestedAspectRatio : '9:16';
   const selectedIndexes = String(formData?.get('angleIndexes') || '')
     .split(',')
     .map((s) => Number(s))

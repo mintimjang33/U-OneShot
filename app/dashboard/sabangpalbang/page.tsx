@@ -6,7 +6,7 @@ import Link from 'next/link';
 type Project = { id: string; source_image_url: string | null; input_mode: string; status: string; created_at: string };
 
 // lib/generateImage.ts의 SABANGPALBANG_ANGLES와 순서를 맞춘 목록(UI 표시용).
-const ANGLES = ['정면', '3/4 앵글', '좌측면', '우측면', '후면', '탑다운', '로우앵글', '클로즈업'];
+const ANGLES = ['익스트림 클로즈업', '옆모습 클로즈업', '45도 앵글', '하이 앵글', '로우 앵글', '풀샷', '뒷모습', '오버더 숄더'];
 
 export default function SabangpalbangPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -114,6 +114,9 @@ export default function SabangpalbangPage() {
           <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="border border-border rounded-[var(--radius-card-sm)] px-2 py-1">
             <option value="9:16">9:16 (Portrait)</option>
             <option value="16:9">16:9 (Landscape)</option>
+            <option value="1:1">1:1 (Square)</option>
+            <option value="2:3">2:3 (Poster)</option>
+            <option value="3:2">3:2 (Photo)</option>
           </select>
         </div>
 
