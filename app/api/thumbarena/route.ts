@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '../../../lib/supabase';
 import { getCurrentUser } from '../../../lib/supabaseServerAuth';
-import { generateThumbnailVariant } from '../../../lib/generateImage';
-import { generateThumbnailCopy } from '../../../lib/generateScript';
+import { generateThumbnailVariant, generateThumbnailCopyImage } from '../../../lib/generateImage';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -19,9 +18,10 @@ export async function GET() {
   return NextResponse.json({ projects: data || [] });
 }
 
-// 원본(8-8절) 실측: "이상형 월드컵"이라는 이름과 달리 실제로는 2모드 도구다.
+// 원본(8-8절, 10-3절 재실측) 실측: "이상형 월드컵"이라는 이름과 달리 실제로는 2모드 도구다.
 // - variation(썸네일 변형): 원본 1장 → 2/3/4개 변형 이미지 생성.
-// - copywriting(카피라이팅): 주제 → 썸네일용 짧은 문구 여러 개(이 모드 UI는 미확인 상태라 추정 구현).
+// - copywriting(카피라이팅): 텍스트+분위기+레이아웃(6종)+스타일(4종)을 반영한 완성 썸네일 이미지 1장 생성
+//   (2026-08-29 재실측 전에는 텍스트 문구만 뽑는 걸로 잘못 만들어져 있었음).
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
@@ -32,14 +32,28 @@ export async function POST(request: Request) {
 
   try {
     if (mode === 'copywriting') {
-      const topic = String(formData?.get('topic') || '').trim();
-      const variantCount = [2, 3, 4].includes(Number(formData?.get('variantCount'))) ? Number(formData?.get('variantCount')) : 3;
-      if (!topic) return NextResponse.json({ error: '주제를 입력해주세요.' }, { status: 400 });
+      const copyText = String(formData?.get('copyText') || '').trim();
+      const mood = String(formData?.get('mood') || '').trim() || null;
+      const layout = String(formData?.get('layout') || '텍스트좌측');
+      const visualStyle = String(formData?.get('visualStyle') || '드라마틱');
+      const extraPrompt = String(formData?.get('extraPrompt') || '').trim() || null;
+      if (!copyText) return NextResponse.json({ error: '썸네일 텍스트를 입력해주세요.' }, { status: 400 });
 
-      const copies = await generateThumbnailCopy(topic, variantCount);
+      const { imageUrl } = await generateThumbnailCopyImage(copyText, mood || undefined, layout, visualStyle, extraPrompt || undefined);
       const { data: project, error } = await supabase
         .from('uos_thumbnailremix_projects')
-        .insert({ user_id: user.id, mode: 'copywriting', topic, variant_count: variantCount, result_texts: copies, status: 'done' })
+        .insert({
+          user_id: user.id,
+          mode: 'copywriting',
+          copy_text: copyText,
+          mood,
+          layout,
+          visual_style: visualStyle,
+          prompt_text: extraPrompt,
+          variant_count: 1,
+          image_urls: [imageUrl],
+          status: 'done',
+        })
         .select()
         .single();
       if (error || !project) throw new Error(error?.message || '프로젝트 생성 실패');

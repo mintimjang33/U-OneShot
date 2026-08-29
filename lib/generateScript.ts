@@ -146,22 +146,6 @@ export async function generateUploadRx(
   return { titles: parsed.titles, description: parsed.description, hashtags: parsed.hashtags };
 }
 
-// 썸네일 리믹스 "카피라이팅" 모드: 주제 → 썸네일에 얹을 짧고 자극적인 문구 여러 개.
-// ⚠️ 원본의 이 탭 실제 UI는 미확인 상태(8-8절) — 이름과 부제("카피라이팅")만 보고 만든 추정 구현이다.
-export async function generateThumbnailCopy(topic: string, variantCount: number): Promise<string[]> {
-  const systemPrompt = `너는 유튜브 썸네일 문구 카피라이터다. 주제 하나를 받아서, 썸네일 위에 큼직하게 얹을
-짧고 강렬한 문구를 정확히 ${variantCount}개 만든다.
-
-규칙:
-- 각 문구는 8자 이내, 클릭을 부르는 임팩트 있는 표현(궁금증/충격/반전/숫자 강조)으로 서로 다르게 만든다.
-- 결과는 JSON만 출력한다: {"copies": ["문구1", ...]} (배열 길이는 반드시 ${variantCount})`;
-
-  const parsed = (await callClaudeForJSON(systemPrompt, `주제: ${topic}`, 512)) as { copies?: string[] };
-  if (!Array.isArray(parsed.copies) || parsed.copies.length === 0) {
-    throw new Error('카피라이팅 응답 형식이 올바르지 않습니다.');
-  }
-  return parsed.copies;
-}
 
 // 가사비서 (신규, 8-9절 실측 기반): 주제+장르+보컬타입 → 가사 + SUNO AI 프롬프트(스타일 태그 문자열).
 export const LYRICS_THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족'];

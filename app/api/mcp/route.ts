@@ -21,13 +21,21 @@ import {
   generateShortDaeriScripts,
   generateUploadRx,
   UPLOADRX_STYLES,
-  generateThumbnailCopy,
   generateLyrics,
   LYRICS_THEMES,
   LYRICS_GENRES,
   LYRICS_VOCAL_TYPES,
 } from '../../../lib/generateScript';
-import { generateCutImage, generateAngleImage, generateAngleImageFromPrompt, SABANGPALBANG_ANGLES, generateThumbnailVariant } from '../../../lib/generateImage';
+import {
+  generateCutImage,
+  generateAngleImage,
+  generateAngleImageFromPrompt,
+  SABANGPALBANG_ANGLES,
+  generateThumbnailVariant,
+  generateThumbnailCopyImage,
+  THUMBNAIL_COPY_LAYOUTS,
+  THUMBNAIL_COPY_STYLES,
+} from '../../../lib/generateImage';
 import { generateCutVoice, generateReadingBoxVoice } from '../../../lib/generateVoice';
 import { getRemoteConfig } from '../../../lib/remoteConfig';
 
@@ -558,17 +566,37 @@ const baseHandler = createMcpHandler(
       'create_thumbnail_copywriting',
       {
         title: '썸네일 리믹스 — 카피라이팅',
-        description: '주제→썸네일용 짧은 문구 2~4개를 생성해 uos_thumbnailremix_projects에 저장한다.',
-        inputSchema: { topic: z.string(), variantCount: z.number().int().min(2).max(4).optional(), userId: z.string().optional() },
+        description:
+          '텍스트+분위기+레이아웃+스타일을 반영한 완성 썸네일 이미지 1장을 생성해 uos_thumbnailremix_projects에 저장한다. ' +
+          `레이아웃: ${Object.keys(THUMBNAIL_COPY_LAYOUTS).join(', ')}. 스타일: ${Object.keys(THUMBNAIL_COPY_STYLES).join(', ')}.`,
+        inputSchema: {
+          copyText: z.string().describe('썸네일에 표시할 텍스트'),
+          mood: z.string().optional().describe('텍스트 분위기(예: 자극적, 감성, 유머)'),
+          layout: z.enum(Object.keys(THUMBNAIL_COPY_LAYOUTS) as [string, ...string[]]).optional(),
+          visualStyle: z.enum(Object.keys(THUMBNAIL_COPY_STYLES) as [string, ...string[]]).optional(),
+          extraPrompt: z.string().optional(),
+          userId: z.string().optional(),
+        },
       },
-      async ({ topic, variantCount = 3, userId }) => {
+      async ({ copyText, mood, layout = '텍스트좌측', visualStyle = '드라마틱', extraPrompt, userId }) => {
         try {
           const uid = resolveUserId(userId);
-          const copies = await generateThumbnailCopy(topic, variantCount);
+          const { imageUrl } = await generateThumbnailCopyImage(copyText, mood, layout, visualStyle, extraPrompt);
           const supabase = getSupabaseServerClient();
           const { data: project, error } = await supabase
             .from('uos_thumbnailremix_projects')
-            .insert({ user_id: uid, mode: 'copywriting', topic, variant_count: variantCount, result_texts: copies, status: 'done' })
+            .insert({
+              user_id: uid,
+              mode: 'copywriting',
+              copy_text: copyText,
+              mood: mood || null,
+              layout,
+              visual_style: visualStyle,
+              prompt_text: extraPrompt || null,
+              variant_count: 1,
+              image_urls: [imageUrl],
+              status: 'done',
+            })
             .select()
             .single();
           if (error || !project) throw new Error(error?.message || '생성 실패');

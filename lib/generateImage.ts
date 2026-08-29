@@ -138,3 +138,54 @@ export async function generateThumbnailVariant(
 
   return { imageUrl };
 }
+
+// 썸네일 리믹스 "카피라이팅" 모드 — 2026-08-29 재로그인 실측(10-3절)으로 재설계: 이전엔 텍스트 문구만
+// 뽑았지만, 실제 원본은 완성된 썸네일 이미지를 만드는 기능이다(텍스트+분위기+레이아웃+스타일을 반영한
+// 이미지 자체를 생성). fal-ai/nano-banana(text-to-image, 16:9 유튜브 썸네일 비율)로 생성한다.
+export const THUMBNAIL_COPY_LAYOUTS: Record<string, string> = {
+  텍스트좌측: 'the bold headline text positioned on the left side of the frame',
+  텍스트우측: 'the bold headline text positioned on the right side of the frame',
+  중앙집중: 'the bold headline text centered in the middle of the frame',
+  분할화면: 'a split-screen composition with the headline text separating the two halves',
+  풀블리드: 'a full-bleed image filling the entire frame with the headline text overlaid on top',
+  대각선분할: 'a diagonal split composition with the headline text along the diagonal',
+};
+
+export const THUMBNAIL_COPY_STYLES: Record<string, string> = {
+  드라마틱: 'dramatic, high contrast lighting, bold hard shadows',
+  시네마틱: 'cinematic, film-like color grading, moody atmosphere',
+  '팝/컬러풀': 'pop art style, vibrant saturated colors, playful energy',
+  '클린/미니멀': 'clean, minimalist, plenty of negative space, simple color palette',
+};
+
+export async function generateThumbnailCopyImage(
+  copyText: string,
+  mood: string | undefined,
+  layout: string,
+  style: string,
+  extraPrompt?: string
+): Promise<{ imageUrl: string }> {
+  const apiKey = await getRemoteConfig('FAL_KEY');
+  if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
+
+  const layoutDesc = THUMBNAIL_COPY_LAYOUTS[layout] || THUMBNAIL_COPY_LAYOUTS.텍스트좌측;
+  const styleDesc = THUMBNAIL_COPY_STYLES[style] || THUMBNAIL_COPY_STYLES.드라마틱;
+  const moodPart = mood?.trim() ? ` The overall mood/tone should be: ${mood}.` : '';
+  const extraPart = extraPrompt?.trim() ? ` Additional direction: ${extraPrompt}.` : '';
+
+  const prompt =
+    `Design an eye-catching YouTube thumbnail. Render the exact text "${copyText}" as a large, bold, highly readable ` +
+    `headline with a thick outline or drop shadow so it stands out against the background. Layout: ${layoutDesc}. ` +
+    `Visual style: ${styleDesc}.${moodPart}${extraPart} Make it look like a professional, high-CTR YouTube thumbnail.`;
+
+  const res = await fetch('https://fal.run/fal-ai/nano-banana', {
+    method: 'POST',
+    headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, aspect_ratio: '16:9', num_images: 1, output_format: 'png' }),
+  });
+  const json2 = await res.json();
+  const imageUrl2 = json2.images?.[0]?.url;
+  if (!res.ok || !imageUrl2) throw new Error(json2.detail || JSON.stringify(json2));
+
+  return { imageUrl: imageUrl2 };
+}

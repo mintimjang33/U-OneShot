@@ -7,9 +7,11 @@ type Project = {
   mode: string;
   source_image_url: string | null;
   prompt_text: string | null;
-  topic: string | null;
+  copy_text: string | null;
+  mood: string | null;
+  layout: string | null;
+  visual_style: string | null;
   image_urls: string[] | null;
-  result_texts: string[] | null;
   status: string;
 };
 
@@ -27,7 +29,7 @@ export default function ThumbnailRemixProjectPage({ params }: { params: Promise<
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-black mb-1">{project.mode === 'copywriting' ? project.topic : '썸네일 변형 결과'}</h1>
+      <h1 className="text-2xl font-black mb-1">{project.mode === 'copywriting' ? project.copy_text : '썸네일 변형 결과'}</h1>
       <p className="text-sm text-muted mb-8">{project.status === 'done' ? '완료' : '생성 중...'}</p>
 
       {project.mode === 'variation' && (
@@ -51,12 +53,18 @@ export default function ThumbnailRemixProjectPage({ params }: { params: Promise<
       )}
 
       {project.mode === 'copywriting' && (
-        <div className="space-y-2">
-          {(project.result_texts || []).map((text, i) => (
-            <div key={i} className="border border-border rounded-[var(--radius-card)] px-4 py-3 text-lg font-black text-center">
-              {text}
-            </div>
-          ))}
+        <div>
+          {project.image_urls?.[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.image_urls[0]} alt={project.copy_text || '썸네일'} className="w-full max-w-xl rounded-[var(--radius-card)] border border-border mb-4" />
+          ) : (
+            <p className="text-sm text-muted mb-4">생성 중이에요...</p>
+          )}
+          <div className="flex flex-wrap gap-2 text-xs text-muted">
+            {project.mood && <span className="border border-border rounded-[var(--radius-pill)] px-3 py-1">분위기: {project.mood}</span>}
+            {project.layout && <span className="border border-border rounded-[var(--radius-pill)] px-3 py-1">레이아웃: {project.layout}</span>}
+            {project.visual_style && <span className="border border-border rounded-[var(--radius-pill)] px-3 py-1">스타일: {project.visual_style}</span>}
+          </div>
         </div>
       )}
     </div>

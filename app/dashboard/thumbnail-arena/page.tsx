@@ -3,14 +3,37 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
-type Project = { id: string; mode: string; source_image_url: string | null; topic: string | null; status: string; created_at: string };
+type Project = {
+  id: string;
+  mode: string;
+  source_image_url: string | null;
+  copy_text: string | null;
+  image_urls: string[] | null;
+  status: string;
+  created_at: string;
+};
+
+const COPY_LAYOUTS = ['텍스트좌측', '텍스트우측', '중앙집중', '분할화면', '풀블리드', '대각선분할'];
+const COPY_LAYOUT_LABELS: Record<string, string> = {
+  텍스트좌측: '텍스트 좌측',
+  텍스트우측: '텍스트 우측',
+  중앙집중: '중앙 집중',
+  분할화면: '분할 화면',
+  풀블리드: '풀 블리드',
+  대각선분할: '대각선 분할',
+};
+const COPY_STYLES = ['드라마틱', '시네마틱', '팝/컬러풀', '클린/미니멀'];
 
 export default function ThumbnailRemixPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [mode, setMode] = useState<'variation' | 'copywriting'>('variation');
   const [prompt, setPrompt] = useState('');
-  const [topic, setTopic] = useState('');
   const [variantCount, setVariantCount] = useState(2);
+  const [copyText, setCopyText] = useState('');
+  const [mood, setMood] = useState('');
+  const [layout, setLayout] = useState('텍스트좌측');
+  const [visualStyle, setVisualStyle] = useState('드라마틱');
+  const [extraPrompt, setExtraPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,16 +53,20 @@ export default function ThumbnailRemixPage() {
 
     const formData = new FormData();
     formData.append('mode', mode);
-    formData.append('variantCount', String(variantCount));
 
     if (mode === 'copywriting') {
-      if (!topic.trim()) {
+      if (!copyText.trim()) {
         setGenerating(false);
-        setError('주제를 입력해주세요.');
+        setError('썸네일 텍스트를 입력해주세요.');
         return;
       }
-      formData.append('topic', topic);
+      formData.append('copyText', copyText);
+      if (mood) formData.append('mood', mood);
+      formData.append('layout', layout);
+      formData.append('visualStyle', visualStyle);
+      if (extraPrompt) formData.append('extraPrompt', extraPrompt);
     } else {
+      formData.append('variantCount', String(variantCount));
       const file = fileRef.current?.files?.[0];
       if (!file) {
         setGenerating(false);
@@ -120,28 +147,63 @@ export default function ThumbnailRemixPage() {
           </>
         ) : (
           <>
-            <label className="text-xs font-bold text-muted block mb-1">주제</label>
-            <input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="예: 겨울철 난방비 절약 꿀팁"
+            <label className="text-xs font-bold text-muted block mb-1">썸네일 텍스트</label>
+            <textarea
+              value={copyText}
+              onChange={(e) => setCopyText(e.target.value)}
+              placeholder="썸네일에 표시할 텍스트를 입력하세요..."
+              rows={2}
               className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-4"
             />
-            <label className="text-xs font-bold text-muted block mb-1">문구 개수</label>
-            <div className="flex gap-2 mb-4">
-              {[2, 3, 4].map((n) => (
+
+            <label className="text-xs font-bold text-muted block mb-1">텍스트 분위기</label>
+            <input
+              value={mood}
+              onChange={(e) => setMood(e.target.value)}
+              placeholder="예: 자극적, 감성, 유머..."
+              className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-4"
+            />
+
+            <label className="text-xs font-bold text-muted block mb-1">레이아웃 선택</label>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {COPY_LAYOUTS.map((l) => (
                 <button
-                  key={n}
+                  key={l}
                   type="button"
-                  onClick={() => setVariantCount(n)}
-                  className={`text-xs font-bold rounded-[var(--radius-pill)] px-4 py-1.5 border ${
-                    variantCount === n ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
+                  onClick={() => setLayout(l)}
+                  className={`text-xs font-bold rounded-[var(--radius-card-sm)] px-3 py-1.5 border ${
+                    layout === l ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
                   }`}
                 >
-                  {n}개
+                  {COPY_LAYOUT_LABELS[l]}
                 </button>
               ))}
             </div>
+
+            <label className="text-xs font-bold text-muted block mb-1">스타일 선택</label>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {COPY_STYLES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setVisualStyle(s)}
+                  className={`text-xs font-bold rounded-[var(--radius-card-sm)] px-3 py-1.5 border ${
+                    visualStyle === s ? 'bg-accent text-white border-accent' : 'border-border hover:bg-white/10'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+
+            <label className="text-xs font-bold text-muted block mb-1">추가 프롬프트 (선택)</label>
+            <textarea
+              value={extraPrompt}
+              onChange={(e) => setExtraPrompt(e.target.value)}
+              placeholder="배경, 소품 등 추가로 반영하고 싶은 내용을 입력하세요..."
+              rows={2}
+              className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm mb-4"
+            />
           </>
         )}
 
@@ -161,11 +223,14 @@ export default function ThumbnailRemixPage() {
         {projects.length === 0 && <p className="text-sm text-muted col-span-3">아직 만든 프로젝트가 없어요.</p>}
         {projects.map((p) => (
           <Link key={p.id} href={`/dashboard/thumbnail-arena/${p.id}`} className="border border-border rounded-[var(--radius-card)] overflow-hidden hover:border-accent">
-            {p.source_image_url ? (
+            {p.mode === 'copywriting' && p.image_urls?.[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.image_urls[0]} alt={p.copy_text || '카피라이팅'} className="w-full h-24 object-cover" />
+            ) : p.source_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.source_image_url} alt="원본" className="w-full h-24 object-cover" />
             ) : (
-              <div className="w-full h-24 bg-white/5 flex items-center justify-center text-[10px] text-muted p-2 text-center">{p.topic || '카피라이팅'}</div>
+              <div className="w-full h-24 bg-white/5 flex items-center justify-center text-[10px] text-muted p-2 text-center">{p.copy_text || '카피라이팅'}</div>
             )}
             <div className="text-xs font-bold p-2 text-center">{p.status}</div>
           </Link>
