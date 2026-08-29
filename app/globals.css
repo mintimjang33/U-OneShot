@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 /* U-OneShot 디자인 시스템 — 1단계: buronai.com 실제 대시보드(로그인 후 화면, 2026-08-29 재실측)와
-   시각적으로 맞춤. 다크 배경 #0e0e0e + 시안(#0891b2) 액센트, Pretendard 폰트, 카드 radius 16px,
-   반투명 흰 보더/배경(원본은 border-white/10, bg-white/5 조합을 씀). 색상 자체를 원본과 다르게
-   차별화하는 건 2단계 작업으로 별도 진행 예정(사용자 확정, 2026-08-29). */
+   레이아웃/타이포/카드 스타일은 시각적으로 맞추되(다크 배경 #0e0e0e, Pretendard 폰트, 카드 radius 16px,
+   반투명 흰 보더/배경 — 원본은 border-white/10, bg-white/5 조합을 씀), 액센트 색상은 2단계에서
+   원본의 시안(#0891b2)과 구분되도록 앰버/오렌지 계열로 차별화함(사용자 확정, 2026-08-29). */
 :root {
   --background: #0e0e0e;
   --foreground: #ffffff;
   --muted: rgba(255, 255, 255, 0.45);
   --border: rgba(255, 255, 255, 0.1);
-  --active-bg: rgba(8, 145, 178, 0.12);
-  --accent: #0891b2;
-  --accent-hover: #0e7490;
-  --accent-soft: rgba(8, 145, 178, 0.1);
+  --active-bg: rgba(217, 119, 6, 0.12);
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-soft: rgba(217, 119, 6, 0.1);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-pill: 999px;
