@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   const genre: string = body?.genre;
   const vocalType: string = body?.vocalType || '여성';
   const language: string = body?.language || '한국어';
+  const mood: string | null = body?.mood || null;
+  const structure: string | null = body?.structure || null;
   if (!theme?.trim() || !genre?.trim()) return NextResponse.json({ error: '주제와 장르를 입력해주세요.' }, { status: 400 });
 
   const gateError = await checkFeatureGate(user.id, 'lyrics', '가사비서');
@@ -36,10 +38,21 @@ export async function POST(request: Request) {
   const supabase = getSupabaseServerClient();
 
   try {
-    const { title, lyrics, sunoPrompt } = await generateLyrics(theme, genre, vocalType, language);
+    const { title, lyrics, sunoPrompt } = await generateLyrics(theme, genre, vocalType, language, mood || undefined, structure || undefined);
     const { data: project, error } = await supabase
       .from('uos_lyrics_projects')
-      .insert({ user_id: user.id, language, theme, genre, vocal_type: vocalType, title, lyrics_content: lyrics, suno_prompt: sunoPrompt })
+      .insert({
+        user_id: user.id,
+        language,
+        theme,
+        genre,
+        vocal_type: vocalType,
+        mood,
+        structure,
+        title,
+        lyrics_content: lyrics,
+        suno_prompt: sunoPrompt,
+      })
       .select()
       .single();
     if (error || !project) throw new Error(error?.message || '저장 실패');

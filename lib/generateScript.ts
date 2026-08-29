@@ -148,27 +148,59 @@ export async function generateUploadRx(
 
 
 // 가사비서 (신규, 8-9절 실측 기반): 주제+장르+보컬타입 → 가사 + SUNO AI 프롬프트(스타일 태그 문자열).
-export const LYRICS_THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족'];
-export const LYRICS_GENRES = ['K-Pop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Ballad', 'Hip-hop', 'Trot', 'EDM'];
-export const LYRICS_VOCAL_TYPES = ['여성', '남성', '혼성'];
+// 2026-08-29 고급모드 실측: 언어 15개, 테마 9개(기본모드는 앞 6개만 노출), 장르 32개(기본모드는 앞 9개만
+// 노출), 보컬 타입 7종, 무드 9종·가사 구성 10종은 고급모드 전용 신규 필드.
+export const LYRICS_LANGUAGES = [
+  '한국어', 'English', '日本語', '中文', 'Español', 'Tiếng Việt', 'ไทย', 'Français',
+  'Deutsch', 'Italiano', 'Português', 'Русский', 'हिन्दी', 'Bahasa Indonesia', 'Nederlands',
+];
+export const LYRICS_THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족', '희망', '추억', '자유'];
+export const LYRICS_GENRES = [
+  'K-Pop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Ballad', 'Hip-hop', 'Trot', 'EDM',
+  'Soul', 'Funk', 'Disco', 'Synthwave', 'Lo-fi', 'Acoustic', 'Metal', 'Country', 'Reggae',
+  'Folk', 'Latin', 'City Pop', 'New Age', 'Phonk', 'Gospel', 'Indie', 'Classic', 'Techno',
+  'Trap', 'House', 'Future Bass', 'Afrobeats', 'Chillhop',
+];
+export const LYRICS_VOCAL_TYPES = ['여성', '남성', '남녀 듀엣', '여성 허스키', '남성 허스키', '여성 맑은', '남성 맑은'];
+export const LYRICS_MOODS = ['경쾌한', '슬픈', '강렬한', '몽환적인', '웅장한', '차분한', '치명적인', '서늘한', '음성거리는'];
+export const LYRICS_STRUCTURES = [
+  '1 감정 점층형 (몰입 최강)',
+  '2 후렴 반복 중독형 (바이럴용)',
+  '3 스토리텔링 영화형',
+  '4 A/B 후렴 대비형',
+  '5 EDM 댄스 빌드업형',
+  '6 트로트/민요 계열 반복형',
+  '7 감정 반전형 (힘숨찐 구조)',
+  '8 대화 콜앤리스폰스형',
+  '9 명상/찬불가/로파이형',
+  '10 쇼츠 확장 고려형 (모듈 구조)',
+];
 
 export async function generateLyrics(
   theme: string,
   genre: string,
   vocalType: string,
-  language: string
+  language: string,
+  mood?: string,
+  structure?: string
 ): Promise<{ title: string; lyrics: string; sunoPrompt: string }> {
   const systemPrompt = `너는 작사가다. 주제·장르·보컬 타입을 받아서 노래 가사를 쓰고, SUNO AI(AI 작곡 서비스)에
 바로 붙여넣을 수 있는 스타일 프롬프트도 함께 만든다.
 
 규칙:
 - 가사는 ${language}로 쓴다. 벌스(verse) 2개 + 후렴(chorus) 구조를 갖춘다. 섹션 이름([Verse 1], [Chorus] 등)을
-  표시하고 줄바꿈으로 구분한다.
+  표시하고 줄바꿈으로 구분한다.${mood ? `\n- 곡 전체의 무드는 "${mood}" 느낌으로 쓴다.` : ''}${
+    structure ? `\n- 가사 구성은 "${structure}" 방식을 따른다.` : ''
+  }
 - SUNO 프롬프트는 영어로, 장르/무드/보컬타입/템포/악기 등을 쉼표로 나열한 짧은 태그 형식으로 쓴다
   (예: "K-pop, female vocal, upbeat, synth-pop, emotional bridge").
 - 결과는 JSON만 출력한다: {"title": "곡 제목", "lyrics": "가사 전체", "sunoPrompt": "SUNO 스타일 프롬프트"}`;
 
-  const parsed = (await callClaudeForJSON(systemPrompt, `주제: ${theme}\n장르: ${genre}\n보컬 타입: ${vocalType}\n언어: ${language}`, 2048)) as {
+  const userParts = [`주제: ${theme}`, `장르: ${genre}`, `보컬 타입: ${vocalType}`, `언어: ${language}`];
+  if (mood) userParts.push(`무드: ${mood}`);
+  if (structure) userParts.push(`가사 구성: ${structure}`);
+
+  const parsed = (await callClaudeForJSON(systemPrompt, userParts.join('\n'), 2048)) as {
     title?: string;
     lyrics?: string;
     sunoPrompt?: string;

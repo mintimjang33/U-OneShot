@@ -8,17 +8,41 @@ type LyricsProject = {
   theme: string;
   genre: string;
   vocal_type: string;
+  mood: string | null;
+  structure: string | null;
   title: string;
   lyrics_content: string;
   suno_prompt: string;
   created_at: string;
 };
 
-// 8-9절 실측: 언어 드롭다운, 테마 프리셋 6개, 장르 버튼 9개, 보컬타입 드롭다운.
-const LANGUAGES = ['한국어', '영어', '일본어'];
-const THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족'];
-const GENRES = ['K-Pop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Ballad', 'Hip-hop', 'Trot', 'EDM'];
-const VOCAL_TYPES = ['여성', '남성', '혼성'];
+// 2026-08-29 고급모드 실측: 언어 15개, 테마 9개(기본모드는 앞 6개만), 장르 32개(기본모드는 앞 9개만),
+// 보컬타입 7종(기본/고급 공통), 무드 9종·가사 구성 10종은 고급모드 전용 신규 필드.
+const LANGUAGES = [
+  '한국어', 'English', '日本語', '中文', 'Español', 'Tiếng Việt', 'ไทย', 'Français',
+  'Deutsch', 'Italiano', 'Português', 'Русский', 'हिन्दी', 'Bahasa Indonesia', 'Nederlands',
+];
+const THEMES = ['사랑', '이별', '우정', '꿈', '청춘', '가족', '희망', '추억', '자유'];
+const GENRES = [
+  'K-Pop', 'Pop', 'Rock', 'Jazz', 'R&B', 'Ballad', 'Hip-hop', 'Trot', 'EDM',
+  'Soul', 'Funk', 'Disco', 'Synthwave', 'Lo-fi', 'Acoustic', 'Metal', 'Country', 'Reggae',
+  'Folk', 'Latin', 'City Pop', 'New Age', 'Phonk', 'Gospel', 'Indie', 'Classic', 'Techno',
+  'Trap', 'House', 'Future Bass', 'Afrobeats', 'Chillhop',
+];
+const VOCAL_TYPES = ['여성', '남성', '남녀 듀엣', '여성 허스키', '남성 허스키', '여성 맑은', '남성 맑은'];
+const MOODS = ['경쾌한', '슬픈', '강렬한', '몽환적인', '웅장한', '차분한', '치명적인', '서늘한', '음성거리는'];
+const STRUCTURES = [
+  '1 감정 점층형 (몰입 최강)',
+  '2 후렴 반복 중독형 (바이럴용)',
+  '3 스토리텔링 영화형',
+  '4 A/B 후렴 대비형',
+  '5 EDM 댄스 빌드업형',
+  '6 트로트/민요 계열 반복형',
+  '7 감정 반전형 (힘숨찐 구조)',
+  '8 대화 콜앤리스폰스형',
+  '9 명상/찬불가/로파이형',
+  '10 쇼츠 확장 고려형 (모듈 구조)',
+];
 
 export default function LyricsPage() {
   const [mode, setMode] = useState<'basic' | 'advanced'>('basic');
@@ -27,6 +51,8 @@ export default function LyricsPage() {
   const [customTheme, setCustomTheme] = useState('');
   const [genre, setGenre] = useState(GENRES[0]);
   const [vocalType, setVocalType] = useState(VOCAL_TYPES[0]);
+  const [mood, setMood] = useState(MOODS[0]);
+  const [structure, setStructure] = useState(STRUCTURES[0]);
 
   const [projects, setProjects] = useState<LyricsProject[]>([]);
   const [result, setResult] = useState<LyricsProject | null>(null);
@@ -49,7 +75,13 @@ export default function LyricsPage() {
     const res = await fetch('/api/lyrics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme: finalTheme, genre, vocalType, language }),
+      body: JSON.stringify({
+        theme: finalTheme,
+        genre,
+        vocalType,
+        language,
+        ...(mode === 'advanced' ? { mood, structure } : {}),
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -60,6 +92,9 @@ export default function LyricsPage() {
     setResult(data.project);
     setProjects((prev) => [data.project, ...prev]);
   }
+
+  const visibleThemes = mode === 'advanced' ? THEMES : THEMES.slice(0, 6);
+  const visibleGenres = mode === 'advanced' ? GENRES : GENRES.slice(0, 9);
 
   function copyPrompt() {
     if (!result) return;
@@ -94,98 +129,129 @@ export default function LyricsPage() {
         </button>
       </div>
 
-      {mode === 'advanced' ? (
-        <div className="border border-dashed border-border rounded-[var(--radius-card)] p-6 text-sm text-muted mb-6">
-          고급모드는 원본 실측이 아직 확인되지 않아 준비 중입니다. 우선 기본모드를 이용해주세요.
-        </div>
-      ) : (
-        <div className="space-y-5 mb-6">
-          <div>
-            <label className="text-sm font-bold block mb-1.5">언어</label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm font-bold block mb-1.5">테마</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {THEMES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setTheme(t);
-                    setCustomTheme('');
-                  }}
-                  className={`px-3 py-1.5 rounded-[var(--radius-card-sm)] text-sm border ${
-                    theme === t && !customTheme ? 'bg-accent text-white border-accent' : 'border-border'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            <input
-              value={customTheme}
-              onChange={(e) => setCustomTheme(e.target.value)}
-              placeholder="직접 입력 (선택)"
-              className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-bold block mb-1.5">장르</label>
-            <div className="flex flex-wrap gap-2">
-              {GENRES.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGenre(g)}
-                  className={`px-3 py-1.5 rounded-[var(--radius-card-sm)] text-sm border ${
-                    genre === g ? 'bg-accent text-white border-accent' : 'border-border'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-bold block mb-1.5">보컬 타입</label>
-            <select
-              value={vocalType}
-              onChange={(e) => setVocalType(e.target.value)}
-              className="border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
-            >
-              {VOCAL_TYPES.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={generate}
-            disabled={loading}
-            className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2.5 text-sm disabled:opacity-40"
+      <div className="space-y-5 mb-6">
+        <div>
+          <label className="text-sm font-bold block mb-1.5">언어</label>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
           >
-            {loading ? '가사 만드는 중...' : '가사 만들기'}
-          </button>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+            {LANGUAGES.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+
+        <div>
+          <label className="text-sm font-bold block mb-1.5">테마</label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {visibleThemes.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setTheme(t);
+                  setCustomTheme('');
+                }}
+                className={`px-3 py-1.5 rounded-[var(--radius-card-sm)] text-sm border ${
+                  theme === t && !customTheme ? 'bg-accent text-white border-accent' : 'border-border'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <input
+            value={customTheme}
+            onChange={(e) => setCustomTheme(e.target.value)}
+            placeholder="직접 입력 (선택)"
+            className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-bold block mb-1.5">장르</label>
+          <div className="flex flex-wrap gap-2">
+            {visibleGenres.map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setGenre(g)}
+                className={`px-3 py-1.5 rounded-[var(--radius-card-sm)] text-sm border ${
+                  genre === g ? 'bg-accent text-white border-accent' : 'border-border'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {mode === 'advanced' && (
+          <div>
+            <label className="text-sm font-bold block mb-1.5">곡의 무드 (MOOD)</label>
+            <div className="flex flex-wrap gap-2">
+              {MOODS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMood(m)}
+                  className={`px-3 py-1.5 rounded-[var(--radius-card-sm)] text-sm border ${
+                    mood === m ? 'bg-accent text-white border-accent' : 'border-border'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mode === 'advanced' && (
+          <div>
+            <label className="text-sm font-bold block mb-1.5">가사 구성</label>
+            <select
+              value={structure}
+              onChange={(e) => setStructure(e.target.value)}
+              className="w-full border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
+            >
+              {STRUCTURES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm font-bold block mb-1.5">보컬 타입 및 음색</label>
+          <select
+            value={vocalType}
+            onChange={(e) => setVocalType(e.target.value)}
+            className="border border-border rounded-[var(--radius-card-sm)] px-3 py-2 text-sm"
+          >
+            {VOCAL_TYPES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={generate}
+          disabled={loading}
+          className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2.5 text-sm disabled:opacity-40"
+        >
+          {loading ? '가사 만드는 중...' : '가사 만들기'}
+        </button>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
 
       {result && (
         <div className="border border-border rounded-[var(--radius-card)] p-5 mb-8">

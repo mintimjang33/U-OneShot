@@ -25,6 +25,8 @@ import {
   LYRICS_THEMES,
   LYRICS_GENRES,
   LYRICS_VOCAL_TYPES,
+  LYRICS_MOODS,
+  LYRICS_STRUCTURES,
 } from '../../../lib/generateScript';
 import {
   generateCutImage,
@@ -710,23 +712,37 @@ const baseHandler = createMcpHandler(
       {
         title: '가사비서 — 가사 + SUNO 프롬프트 생성',
         description: `테마/장르/보컬타입/언어로 가사와 SUNO AI 스타일 프롬프트를 생성해 uos_lyrics_projects에 저장한다. ` +
-          `테마 예시: ${LYRICS_THEMES.join(', ')} (자유 입력도 가능). 장르: ${LYRICS_GENRES.join(', ')}. 보컬타입: ${LYRICS_VOCAL_TYPES.join(', ')}.`,
+          `테마 예시: ${LYRICS_THEMES.join(', ')} (자유 입력도 가능). 장르: ${LYRICS_GENRES.join(', ')}. 보컬타입: ${LYRICS_VOCAL_TYPES.join(', ')}. ` +
+          `mood/structure는 고급모드 전용 선택 필드다. mood 예시: ${LYRICS_MOODS.join(', ')}. structure 예시: ${LYRICS_STRUCTURES.join(' / ')}.`,
         inputSchema: {
           theme: z.string(),
           genre: z.string(),
           vocalType: z.string().optional(),
           language: z.string().optional(),
+          mood: z.string().optional(),
+          structure: z.string().optional(),
           userId: z.string().optional(),
         },
       },
-      async ({ theme, genre, vocalType = '여성', language = '한국어', userId }) => {
+      async ({ theme, genre, vocalType = '여성', language = '한국어', mood, structure, userId }) => {
         try {
           const uid = resolveUserId(userId);
-          const { title, lyrics, sunoPrompt } = await generateLyrics(theme, genre, vocalType, language);
+          const { title, lyrics, sunoPrompt } = await generateLyrics(theme, genre, vocalType, language, mood, structure);
           const supabase = getSupabaseServerClient();
           const { data: project, error } = await supabase
             .from('uos_lyrics_projects')
-            .insert({ user_id: uid, language, theme, genre, vocal_type: vocalType, title, lyrics_content: lyrics, suno_prompt: sunoPrompt })
+            .insert({
+              user_id: uid,
+              language,
+              theme,
+              genre,
+              vocal_type: vocalType,
+              mood: mood || null,
+              structure: structure || null,
+              title,
+              lyrics_content: lyrics,
+              suno_prompt: sunoPrompt,
+            })
             .select()
             .single();
           if (error || !project) throw new Error(error?.message || '저장 실패');
