@@ -103,27 +103,9 @@ export async function checkCutdaeriVoiceQuota(userId: string, textLength: number
   return null;
 }
 
-export async function checkCutdaeriVideoQuota(userId: string): Promise<string | null> {
-  const { tier } = await getUserTier(userId);
-  const limit = TIER_LIMITS[tier].videos;
-  if (limit === 0) return '컷비서 동영상 생성은 Standard 이상 플랜부터 이용할 수 있어요.';
-
-  const supabase = getSupabaseServerClient();
-  const { count, error } = await supabase
-    .from('uos_cutdaeri_projects')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'done')
-    .gte('created_at', (await monthStart()).toISOString());
-  if (error) throw new Error(error.message);
-
-  if ((count || 0) >= limit) return `컷비서 동영상 이번 달 한도(${limit}회)를 다 쓰셨어요. 요금제를 업그레이드해주세요.`;
-  return null;
-}
-
-// 컷비서 컷별 "동영상"(정지 이미지 대신 짧은 AI 영상클립) 월간 상한. checkCutdaeriVideoQuota(위)는
-// 최종 렌더링(내보내기) 횟수를 세는 별개 게이트라 여기선 uos_cutdaeri_cuts.video_url이 채워진 컷
-// 개수를 센다.
+// 컷비서 컷별 "동영상"(정지 이미지 대신 짧은 AI 영상클립) 월간 상한. "컷대리 내보내기"(최종 렌더링)는
+// 요금제표 재실측(2026-08-30) 결과 전 플랜 무제한이라 별도 게이트가 없다 — uos_cutdaeri_cuts.video_url이
+// 채워진 컷 개수만 센다.
 export async function checkCutdaeriCutVideoQuota(userId: string): Promise<string | null> {
   const { tier } = await getUserTier(userId);
   const limit = TIER_LIMITS[tier].cutdaeriCutVideos;

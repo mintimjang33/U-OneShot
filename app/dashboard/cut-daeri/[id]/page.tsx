@@ -71,6 +71,14 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   const uploadFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // 3단계(생성) — 원본 재실측(2026-08-30): 컷별 4버튼이 아니라 "이미지/동영상" 전체 모드 전환 + 컷별
+  // AI생성/업로드 2버튼뿐이었다. 모드에 따라 AI생성/업로드가 이미지를 만들지 동영상을 만들지 갈린다.
+  const [mediaMode, setMediaMode] = useState<'image' | 'video'>('image');
+
+  // 4단계(편집) — 원본 재실측 결과 컷별 TTS/이미지/동영상/업로드 4버튼과 타임라인은 3단계가 아니라
+  // 이 편집 단계에 있었다. 선택된 컷 하나에 대해서만 4버튼이 뜬다.
+  const [selectedCutIndex, setSelectedCutIndex] = useState(0);
+
   // 4단계(자막 스타일) — 프로젝트가 처음 로드되면 저장된 값(또는 기본값)으로 초기화한다.
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>(DEFAULT_CAPTION_STYLE);
   const [savingCaptionStyle, setSavingCaptionStyle] = useState(false);
@@ -127,9 +135,10 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     setBusyKind(null);
     if (res.ok) {
       setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, image_url: data.imageUrl, video_url: null, status: 'done' } : c)));
-    } else {
-      alert(`이미지 생성 실패: ${data.error}`);
+      return true;
     }
+    alert(`이미지 생성 실패: ${data.error}`);
+    return false;
   }
 
   async function uploadImage(cutId: string, file: File) {
@@ -146,6 +155,29 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     } else {
       alert(`이미지 업로드 실패: ${data.error}`);
     }
+  }
+
+  async function uploadVideo(cutId: string, file: File) {
+    setBusyId(cutId);
+    setBusyKind('upload');
+    const formData = new FormData();
+    formData.append('video', file);
+    const res = await fetch(`/api/cutdaeri/cuts/${cutId}/upload-video`, { method: 'POST', body: formData });
+    const data = await res.json();
+    setBusyId(null);
+    setBusyKind(null);
+    if (res.ok) {
+      setCuts((prev) => prev.map((c) => (c.id === cutId ? { ...c, video_url: data.videoUrl } : c)));
+    } else {
+      alert(`동영상 업로드 실패: ${data.error}`);
+    }
+  }
+
+  // 업로드 버튼 하나로 이미지/동영상 파일 종류를 자동 구분한다(원본 4단계 실측: TTS/이미지/동영상/업로드
+  // 4버튼 중 "업로드"가 하나뿐이라, 이미지 전용/동영상 전용으로 나뉘어 있지 않았다).
+  async function uploadAny(cutId: string, file: File) {
+    if (file.type.startsWith('video/')) await uploadVideo(cutId, file);
+    else await uploadImage(cutId, file);
   }
 
   async function generateCutVideo(cutId: string) {
@@ -166,6 +198,27 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     }
   }
 
+  // 3단계 "동영상" 모드의 AI생성: 원본은 소스 이미지 없이도 컷별로 바로 영상을 뽑아내지만, 우리 파이프라인은
+  // (fal-ai/kling-video가 이미지→영상 모델이라) 이미지가 먼저 있어야 한다 — 없으면 이미지부터 조용히
+  // 만들고 이어서 영상을 생성해서, 사용자 입장에선 버튼 한 번으로 영상이 나오는 것처럼 보이게 한다.
+  async function generateCutMedia(cutId: string) {
+    if (mediaMode === 'image') {
+      await generateImage(cutId);
+      return;
+    }
+    const cut = cuts.find((c) => c.id === cutId);
+    if (!cut?.image_url) {
+      const ok = await generateImage(cutId);
+      if (!ok) return;
+    }
+    await generateCutVideo(cutId);
+  }
+
+  async function uploadMedia(cutId: string, file: File) {
+    if (mediaMode === 'video') await uploadVideo(cutId, file);
+    else await uploadImage(cutId, file);
+  }
+
   async function generateVoice(cutId: string) {
     setBusyId(cutId);
     setBusyKind('voice');
@@ -180,10 +233,10 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     }
   }
 
-  async function generateAll(kind: 'image' | 'voice') {
+  async function generateAll(kind: 'image' | 'video') {
     for (const cut of cuts) {
-      const already = kind === 'image' ? cut.image_url : cut.audio_url;
-      if (!already) await (kind === 'image' ? generateImage(cut.id) : generateVoice(cut.id));
+      const already = kind === 'image' ? cut.image_url : cut.video_url;
+      if (!already) await generateCutMedia(cut.id);
     }
   }
 
@@ -301,16 +354,17 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   }
 
   const busy = busyId !== null;
-  const allReady = cuts.length > 0 && cuts.every((c) => c.image_url && c.audio_url);
+  const allReady = cuts.length > 0 && cuts.every((c) => (c.image_url || c.video_url) && c.audio_url);
   const stepDone = project.status === 'done';
-  const showCaptionStep = allReady && (project.status === 'draft' || project.status === 'done');
-  const stepLabel = stepDone ? '완료' : project.status === 'rendering' ? '렌더링 중' : showCaptionStep ? '자막 스타일' : '생성';
+  const showEditStep = allReady && (project.status === 'draft' || project.status === 'done');
+  const stepLabel = stepDone ? '완료' : project.status === 'rendering' ? '렌더링 중' : showEditStep ? '편집' : '생성';
+  const selectedCut = cuts[selectedCutIndex] || null;
 
   return (
     <div className="max-w-3xl">
       <div className="flex items-center gap-3 mb-1">
         <h1 className="text-2xl font-black">{project.topic || '컷비서 프로젝트'}</h1>
-        <StepBadge n={allReady ? 4 : 3} label={stepLabel} />
+        <StepBadge n={showEditStep ? 4 : 3} label={stepLabel} />
       </div>
       <p className="text-xs text-muted mb-6">
         {STYLE_OPTIONS.find((s) => s.value === project.style)?.label} · {project.aspect_ratio} · 컷 {cuts.length}개
@@ -322,22 +376,31 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         <p className="text-sm text-muted mt-3 whitespace-pre-wrap">{project.script}</p>
       </details>
 
-      <div className="flex gap-3 mb-6 flex-wrap">
+      {/* 3단계: 생성 — 이미지/동영상 모드 전환 + 컷별 AI생성/업로드 2버튼(원본 재실측 구조) */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex border border-border rounded-[var(--radius-pill)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setMediaMode('image')}
+            className={`px-4 py-2 text-sm font-bold ${mediaMode === 'image' ? 'bg-accent text-white' : 'hover:bg-white/10'}`}
+          >
+            이미지
+          </button>
+          <button
+            type="button"
+            onClick={() => setMediaMode('video')}
+            className={`px-4 py-2 text-sm font-bold ${mediaMode === 'video' ? 'bg-accent text-white' : 'hover:bg-white/10'}`}
+          >
+            동영상
+          </button>
+        </div>
         <button
           type="button"
-          onClick={() => generateAll('image')}
+          onClick={() => generateAll(mediaMode)}
           disabled={busy}
           className="bg-accent text-white font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
         >
-          전체 이미지 생성
-        </button>
-        <button
-          type="button"
-          onClick={() => generateAll('voice')}
-          disabled={busy}
-          className="border border-border font-bold rounded-[var(--radius-card-sm)] px-5 py-2 text-sm disabled:opacity-40"
-        >
-          전체 음성 생성
+          전체 {mediaMode === 'image' ? '이미지' : '동영상'} 생성
         </button>
       </div>
 
@@ -349,15 +412,13 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                 project.aspect_ratio === '9:16' || project.aspect_ratio === '3:4' ? 'w-24 h-40' : 'w-40 h-24'
               } flex items-center justify-center`}
             >
-              {cut.video_url ? (
+              {mediaMode === 'video' && cut.video_url ? (
                 <video src={cut.video_url} className="w-full h-full object-cover" muted loop autoPlay playsInline />
               ) : cut.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cut.image_url} alt={`컷 ${cut.order_index + 1}`} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[10px] text-muted">
-                  {busyId === cut.id && (busyKind === 'image' || busyKind === 'upload') ? '처리 중...' : '이미지 없음'}
-                </span>
+                <span className="text-[10px] text-muted">{busyId === cut.id ? '처리 중...' : `${mediaMode === 'image' ? '이미지' : '동영상'} 없음`}</span>
               )}
             </div>
             <div className="flex-1">
@@ -366,11 +427,15 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => generateImage(cut.id)}
+                  onClick={() => generateCutMedia(cut.id)}
                   disabled={busy}
                   className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
                 >
-                  {cut.image_url ? 'AI 다시 생성' : 'AI 생성'}
+                  {busyId === cut.id
+                    ? '생성 중...'
+                    : (mediaMode === 'image' ? cut.image_url : cut.video_url)
+                    ? 'AI 다시 생성'
+                    : 'AI 생성'}
                 </button>
                 <button
                   type="button"
@@ -385,40 +450,132 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
                     uploadFileRefs.current[cut.id] = el;
                   }}
                   type="file"
-                  accept="image/*"
+                  accept={mediaMode === 'video' ? 'video/*' : 'image/*'}
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) uploadImage(cut.id, file);
+                    if (file) uploadMedia(cut.id, file);
                     e.target.value = '';
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={() => generateCutVideo(cut.id)}
-                  disabled={busy || !cut.image_url}
-                  title={!cut.image_url ? '먼저 이미지를 생성하거나 업로드해주세요' : undefined}
-                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
-                >
-                  {busyId === cut.id && busyKind === 'video' ? '생성 중...' : cut.video_url ? '동영상 다시 생성' : '동영상'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => generateVoice(cut.id)}
-                  disabled={busy}
-                  className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
-                >
-                  {busyId === cut.id && busyKind === 'voice' ? '생성 중...' : cut.audio_url ? '음성 다시 생성' : '음성 생성'}
-                </button>
-                {cut.audio_url && <audio controls src={cut.audio_url} className="h-8" />}
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {showCaptionStep && (
+      {/* 4단계: 편집 — 컷 선택 + TTS/이미지/동영상/업로드 4버튼 + 타임라인 + 자막 스타일(원본 재실측 구조) */}
+      {showEditStep && selectedCut && (
         <div className="mt-8 border-t border-border pt-6">
+          <div className="flex items-center gap-3 mb-1">
+            <StepBadge n={4} label="편집" />
+          </div>
+          <p className="text-xs text-muted mb-4">컷을 선택해서 자막/음성/이미지/동영상을 다시 만들거나 직접 올리고, 자막 스타일을 정하세요.</p>
+
+          <div className="border border-border rounded-[var(--radius-card)] p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-bold">{selectedCutIndex + 1}번 자막</div>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCutIndex((i) => Math.max(0, i - 1))}
+                  disabled={selectedCutIndex === 0}
+                  className="border border-border rounded-full w-6 h-6 disabled:opacity-30"
+                >
+                  ‹
+                </button>
+                <span className="text-muted">
+                  {selectedCutIndex + 1}/{cuts.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCutIndex((i) => Math.min(cuts.length - 1, i + 1))}
+                  disabled={selectedCutIndex === cuts.length - 1}
+                  className="border border-border rounded-full w-6 h-6 disabled:opacity-30"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+            <p className="text-sm mb-3">{selectedCut.text}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => generateVoice(selectedCut.id)}
+                disabled={busy}
+                className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+              >
+                {busyId === selectedCut.id && busyKind === 'voice' ? '생성 중...' : 'TTS'}
+              </button>
+              <button
+                type="button"
+                onClick={() => generateImage(selectedCut.id)}
+                disabled={busy}
+                className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+              >
+                {busyId === selectedCut.id && busyKind === 'image' ? '생성 중...' : '이미지'}
+              </button>
+              <button
+                type="button"
+                onClick={() => generateCutVideo(selectedCut.id)}
+                disabled={busy || !selectedCut.image_url}
+                title={!selectedCut.image_url ? '먼저 이미지를 생성하거나 업로드해주세요' : undefined}
+                className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+              >
+                {busyId === selectedCut.id && busyKind === 'video' ? '생성 중...' : '동영상'}
+              </button>
+              <button
+                type="button"
+                onClick={() => uploadFileRefs.current[`edit-${selectedCut.id}`]?.click()}
+                disabled={busy}
+                className="text-xs font-bold border border-border rounded-[var(--radius-pill)] px-3 py-1 hover:bg-white/10 disabled:opacity-40"
+              >
+                업로드
+              </button>
+              <input
+                ref={(el) => {
+                  uploadFileRefs.current[`edit-${selectedCut.id}`] = el;
+                }}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadAny(selectedCut.id, file);
+                  e.target.value = '';
+                }}
+              />
+              {selectedCut.audio_url && <audio controls src={selectedCut.audio_url} className="h-8" />}
+            </div>
+          </div>
+
+          <div className="border border-border rounded-[var(--radius-card)] p-4 mb-6">
+            <div className="text-xs font-bold text-muted mb-3">타임라인</div>
+            <div className="space-y-2">
+              {cuts.map((cut, i) => (
+                <button
+                  key={cut.id}
+                  type="button"
+                  onClick={() => setSelectedCutIndex(i)}
+                  className={`w-full flex items-center gap-3 text-left border rounded-[var(--radius-card-sm)] p-2 ${
+                    i === selectedCutIndex ? 'border-accent bg-accent-soft' : 'border-border hover:bg-white/10'
+                  }`}
+                >
+                  <div className="shrink-0 w-12 h-8 bg-white/5 rounded overflow-hidden flex items-center justify-center">
+                    {cut.video_url ? (
+                      <video src={cut.video_url} className="w-full h-full object-cover" muted />
+                    ) : cut.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cut.image_url} alt="" className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                  <span className="text-xs font-bold shrink-0">#{i + 1}</span>
+                  <span className="text-xs text-muted truncate">{cut.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 mb-1">
             <StepBadge n={4} label="자막 스타일" />
           </div>

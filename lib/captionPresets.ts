@@ -13,7 +13,10 @@ export const CAPTION_FONTS = [
   { value: '"Cafe24Ssurround", sans-serif', label: '카페24 써라운드' },
 ] as const;
 
-export const CAPTION_COLOR_SWATCHES = ['#ffffff', '#000000', '#ffd400', '#ff5470', '#22d3ee', '#4ade80', '#a78bfa', '#fb923c'];
+// 2026-08-30 재실측: 실제 편집기 색상칩 10개를 DOM에서 그대로 추출한 값(getComputedStyle 대조 완료).
+export const CAPTION_COLOR_SWATCHES = [
+  '#ffffff', '#000000', '#ffd700', '#ff6b6b', '#00f2ff', '#4ade80', '#a78bfa', '#fb923c', '#f472b6', '#38bdf8',
+];
 
 export const CAPTION_BACKGROUND_MODES = [
   { value: 'none', label: '없음' },
