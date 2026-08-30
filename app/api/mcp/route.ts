@@ -488,9 +488,9 @@ const baseHandler = createMcpHandler(
       {
         title: '컷비서 컷 동영상 생성',
         description: '지정한 컷(uos_cutdaeri_cuts.id)의 정지 이미지를 짧은 AI 영상클립으로 바꾼다. 그 컷에 image_url이 먼저 있어야 한다.',
-        inputSchema: { cutId: z.string(), durationSeconds: z.enum(['5', '10']).optional() },
+        inputSchema: { cutId: z.string(), durationSeconds: z.enum(['5', '10']).optional(), multiShot: z.boolean().optional() },
       },
-      async ({ cutId, durationSeconds = '5' }) => {
+      async ({ cutId, durationSeconds = '5', multiShot = false }) => {
         try {
           const supabase = getSupabaseServerClient();
           const { data: cut } = await supabase
@@ -500,7 +500,7 @@ const baseHandler = createMcpHandler(
             .maybeSingle();
           if (!cut) throw new Error('컷을 찾을 수 없습니다.');
           if (!cut.image_url) throw new Error('먼저 이 컷의 이미지를 생성하거나 업로드해야 합니다.');
-          const { videoUrl } = await generateCutVideo(cut.image_url, cut.uos_cutdaeri_projects.aspect_ratio, durationSeconds);
+          const { videoUrl } = await generateCutVideo(cut.image_url, cut.uos_cutdaeri_projects.aspect_ratio, durationSeconds, multiShot);
           await supabase.from('uos_cutdaeri_cuts').update({ video_url: videoUrl, status: 'done' }).eq('id', cutId);
           return textResult(videoUrl);
         } catch (err) {

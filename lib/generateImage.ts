@@ -24,6 +24,22 @@ export const CUTDAERI_STYLES: { value: string; label: string; prompt: string }[]
   { value: 'film_landscape', label: '필름 풍경', prompt: 'cinematic landscape film photography, wide vista' },
   { value: 'bold_line', label: '볼드 라인', prompt: 'bold line art illustration, thick black outlines, minimal shading' },
   { value: 'watercolor', label: '수채화', prompt: 'watercolor painting style, soft washes, delicate color bleed' },
+  // 20번째 — 벤치마크 참고자료(2026-08-31, 밀레니엄 브릿지 공학 쇼츠 제작 사례)의 실제 Veo Omni
+  // 프롬프트에서 뽑아낸 스타일. 공학/원리 설명형 콘텐츠에 맞는 "기술 도면 3D 시각화" 톤 — 사진처럼
+  // 사실적이지도, 완전 로우폴리도 아닌 중간 지점, 빨간 계측선으로만 수치를 표시하고 텍스트는 전혀
+  // 안 넣는 게 핵심(자막은 캡션 단계에서 따로 입힘). 장면별 카메라 비트/계측선 위치 같은 디테일은
+  // 이 스타일과 별개로 기존 directionPrompt 칸에 넣으면 된다.
+  {
+    value: 'tech_diagram',
+    label: '기술 다이어그램',
+    prompt:
+      'semi-stylized 3D technical/architectural visualization render sitting halfway between clean low-poly and photoreal, ' +
+      'simplified readable geometry with real modeled detail, smooth shading with no visible polygon edges, matte materials, ' +
+      'no mirror gloss, soft studio daylight with mild ambient occlusion, no sun disc, colors rich and clean with full ' +
+      'saturation and no gray wash, any measurement/callout annotation rendered only as a glowing pure red technical ' +
+      'dimension line (extension lines + arrowheads), never as numbers or text, absolutely no text, letters, numbers, ' +
+      'labels, logos or watermark anywhere in frame',
+  },
 ];
 
 const CUTDAERI_ASPECT_RATIOS = ['16:9', '9:16', '1:1', '4:3', '3:4'];
@@ -186,15 +202,26 @@ export async function generateSabangpalbangVideo(
 // 컷비서 4단계 이전 "생성" 단계에서 컷마다 이미지 대신 짧은 AI 영상클립을 쓸 수 있게 하는 옵션
 // (원본 재실측: 컷마다 TTS/이미지/동영상/업로드 4버튼). 이미 생성된 컷 이미지를 소스로 그 컷에
 // 어울리는 자연스러운 카메라 움직임만 추가하는 방향으로 애니메이션한다.
+//
+// multiShot: 벤치마크 영상(2026-08-31 참고자료, Veo Omni 활용 사례)에서 8초 클립 하나에 여러 장면을
+// 나눠 넣는 "멀티샷" 기법으로 크레딧 대비 화면을 3배 뽑는 걸 확인함. 다만 우리는 Veo Omni 같은
+// text-to-video가 아니라 fal-ai/kling-video "image-to-video"라 소스 이미지 1장에 조건화돼 있어서,
+// 진짜로 다른 구도/장면을 만들어내는 건 모델 한계상 보장되지 않는다(같은 인물/배경을 유지한 채
+// 카메라 움직임만 바꾸는 정도가 현실적인 상한선). 그래도 프롬프트로 요청은 해보고 실제로 되는지
+// 사용자가 눈으로 확인할 수 있게 옵션으로 노출한다 — 진짜 멀티샷을 원하면 text-to-video 모델로
+// 아예 바꾸는 별도 작업이 필요함.
 export async function generateCutVideo(
   sourceImageUrl: string,
   aspectRatio?: string,
-  durationSeconds: '5' | '10' = '5'
+  durationSeconds: '5' | '10' = '5',
+  multiShot?: boolean
 ): Promise<{ videoUrl: string }> {
   const apiKey = await getRemoteConfig('FAL_KEY');
   if (!apiKey) throw new Error('FAL_KEY가 설정되어 있지 않습니다.');
 
-  const prompt = 'Animate this image into a short cinematic video with subtle, natural camera movement. Keep the subject and composition unchanged.';
+  const prompt = multiShot
+    ? 'Animate this image into a short video with 2-3 distinct camera framings in sequence (e.g. start on a wide establishing view, then push into a closer detail, then a different angle) while keeping the same subject, setting and style throughout — like quick in-camera scene changes rather than one continuous pan.'
+    : 'Animate this image into a short cinematic video with subtle, natural camera movement. Keep the subject and composition unchanged.';
   return runKlingImageToVideo(apiKey, sourceImageUrl, prompt, aspectRatio, durationSeconds);
 }
 

@@ -14,6 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
 
   const body = await request.json().catch(() => ({}));
   const durationSeconds = body?.durationSeconds === '10' ? '10' : '5';
+  const multiShot = body?.multiShot === true;
 
   const supabase = getSupabaseServerClient();
   const { data: cut } = await supabase
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cut
 
   try {
     const project = cut.uos_cutdaeri_projects;
-    const { videoUrl } = await generateCutVideo(cut.image_url, project.aspect_ratio, durationSeconds);
+    const { videoUrl } = await generateCutVideo(cut.image_url, project.aspect_ratio, durationSeconds, multiShot);
     await supabase.from('uos_cutdaeri_cuts').update({ video_url: videoUrl, status: 'done' }).eq('id', cutId);
     return NextResponse.json({ videoUrl });
   } catch (err) {

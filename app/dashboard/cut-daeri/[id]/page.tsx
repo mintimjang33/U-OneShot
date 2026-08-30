@@ -74,6 +74,9 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
   // 3단계(생성) — 원본 재실측(2026-08-30): 컷별 4버튼이 아니라 "이미지/동영상" 전체 모드 전환 + 컷별
   // AI생성/업로드 2버튼뿐이었다. 모드에 따라 AI생성/업로드가 이미지를 만들지 동영상을 만들지 갈린다.
   const [mediaMode, setMediaMode] = useState<'image' | 'video'>('image');
+  // 벤치마크 참고자료(2026-08-31)의 "멀티샷" 기법 실험 옵션 — lib/generateImage.ts의 generateCutVideo
+  // 주석 참고: 우리는 image-to-video라 진짜 멀티샷을 보장하진 않고, 프롬프트로 요청만 해보는 것.
+  const [multiShot, setMultiShot] = useState(false);
 
   // 4단계(편집) — 원본 재실측 결과 컷별 TTS/이미지/동영상/업로드 4버튼과 타임라인은 3단계가 아니라
   // 이 편집 단계에 있었다. 선택된 컷 하나에 대해서만 4버튼이 뜬다.
@@ -186,7 +189,7 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
     const res = await fetch(`/api/cutdaeri/cuts/${cutId}/generate-video`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ durationSeconds: '5' }),
+      body: JSON.stringify({ durationSeconds: '5', multiShot }),
     });
     const data = await res.json();
     setBusyId(null);
@@ -402,6 +405,12 @@ export default function CutDaeriProjectPage({ params }: { params: Promise<{ id: 
         >
           전체 {mediaMode === 'image' ? '이미지' : '동영상'} 생성
         </button>
+        {mediaMode === 'video' && (
+          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer" title="한 클립 안에 장면을 2~3개 나눠 넣도록 요청 — image-to-video 모델 한계상 진짜로 될지는 결과를 직접 확인해야 함">
+            <input type="checkbox" checked={multiShot} onChange={(e) => setMultiShot(e.target.checked)} className="w-3.5 h-3.5" />
+            멀티샷 시도(실험적)
+          </label>
+        )}
       </div>
 
       <div className="space-y-4">
